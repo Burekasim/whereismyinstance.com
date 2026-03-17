@@ -176,13 +176,6 @@ resource "aws_s3_bucket_policy" "frontend" {
 }
 
 # ── CloudFront distribution ───────────────────────────────
-# Import the existing distribution so its origins are updated
-# to point to the new S3 bucket and API Gateway.
-import {
-  to = aws_cloudfront_distribution.cdn
-  id = var.cloudfront_distribution_id
-}
-
 resource "aws_cloudfront_distribution" "cdn" {
   provider            = aws.us_east_1
   enabled             = true
@@ -258,5 +251,30 @@ resource "aws_cloudfront_distribution" "cdn" {
     acm_certificate_arn      = var.acm_certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
+  }
+}
+
+# ── Route 53 ─────────────────────────────────────────────
+resource "aws_route53_record" "apex" {
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "apex_v6" {
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
+    evaluate_target_health = false
   }
 }

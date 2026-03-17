@@ -10,12 +10,6 @@ variable "project_name" {
   default     = "whereismyinstance"
 }
 
-variable "cloudfront_distribution_id" {
-  description = "ID of the existing CloudFront distribution to import and manage"
-  type        = string
-  default     = "E28DZQE1EZUNPH"
-}
-
 variable "domain_name" {
   description = "Primary domain, e.g. whereismyinstance.com"
   type        = string
@@ -24,6 +18,11 @@ variable "domain_name" {
 
 variable "acm_certificate_arn" {
   description = "ACM certificate ARN (must be in us-east-1) for the CloudFront distribution"
+  type        = string
+}
+
+variable "hosted_zone_id" {
+  description = "Route 53 hosted zone ID for the domain"
   type        = string
 }
 

@@ -72,15 +72,17 @@ jobs:
       - name: Terraform plan
         working-directory: terraform
         env:
-          TF_VAR_aws_region:         ${{ env.AWS_REGION }}
+          TF_VAR_aws_region:          ${{ env.AWS_REGION }}
           TF_VAR_acm_certificate_arn: ${{ secrets.ACM_CERTIFICATE_ARN }}
+          TF_VAR_hosted_zone_id:      ${{ vars.HOSTED_ZONE_ID }}
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
         working-directory: terraform
         env:
-          TF_VAR_aws_region:         ${{ env.AWS_REGION }}
+          TF_VAR_aws_region:          ${{ env.AWS_REGION }}
           TF_VAR_acm_certificate_arn: ${{ secrets.ACM_CERTIFICATE_ARN }}
+          TF_VAR_hosted_zone_id:      ${{ vars.HOSTED_ZONE_ID }}
         run: terraform apply -auto-approve tfplan
 
       # ── Fetch Terraform outputs ────────────────────────
