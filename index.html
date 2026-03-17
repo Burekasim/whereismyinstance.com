@@ -456,22 +456,27 @@
       </div>
     </div>
 
-    <!-- CLI shortcut box -->
-    <div class="cli-box">
-      <div class="cli-box-header">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        CLI shortcut
-      </div>
-      <div class="cli-snippet">
-        <span id="cliSnippetText">i () { curl -s https://whereismyinstance.com/api/$1 | python3 -m json.tool; }</span>
-        <button class="cli-copy-btn" onclick="copyCli(this)">Copy</button>
-      </div>
-      <div class="cli-hint">Add to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then use: <code>i 52.52.52.52</code></div>
-    </div>
-
     <!-- Result area -->
     <div class="result-wrap hidden" id="resultWrap">
       <div id="resultContent"></div>
+
+      <!-- CLI shortcut — shown below result with a visual break -->
+      <div class="cli-box" style="margin-top:32px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:0.72rem;color:var(--muted);white-space:nowrap;">Use from the terminal</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div class="cli-box-header">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI shortcut
+        </div>
+        <div class="cli-snippet">
+          <span id="cliSnippetText">i () { curl -s https://whereismyinstance.com/api/$1 | python3 -m json.tool; }</span>
+          <button class="cli-copy-btn" onclick="copyCli(this)">Copy</button>
+        </div>
+        <div class="cli-hint">Add to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then use: <code>i 52.52.52.52</code></div>
+      </div>
     </div>
 
   </div>

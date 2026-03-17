@@ -1,0 +1,76 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # Every day at 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Validate API responses for known IPs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run health checks
+        run: |
+          BASE="https://whereismyinstance.com/api"
+          PASS=0
+          FAIL=0
+
+          check() {
+            local ip="$1"
+            local expected_cloud="$2"
+            local label="$3"
+
+            echo ""
+            echo "── $label ($ip) ──"
+            RESPONSE=$(curl -sf --max-time 10 "$BASE/$ip" 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "  FAIL: curl error or HTTP failure"
+              echo "  Response: $RESPONSE"
+              FAIL=$((FAIL + 1))
+              return
+            fi
+
+            echo "  Response: $RESPONSE"
+
+            # Verify expected cloud appears in the response
+            if echo "$RESPONSE" | grep -qi "$expected_cloud"; then
+              echo "  PASS: found '$expected_cloud'"
+              PASS=$((PASS + 1))
+            else
+              echo "  FAIL: expected '$expected_cloud' not found in response"
+              FAIL=$((FAIL + 1))
+            fi
+          }
+
+          # One known IP per provider
+          check "52.52.52.52"   "Amazon Web Services" "AWS"
+          check "52.168.0.1"    "Microsoft Azure"     "Azure"
+          check "34.80.0.1"     "Google Cloud"        "GCP"
+          check "104.16.0.1"    "CloudFlare"          "Cloudflare"
+          check "129.146.0.1"   "Oracle Cloud"        "Oracle"
+          check "165.227.0.1"   "DigitalOcean"        "DigitalOcean"
+
+          # stats.json served from S3
+          echo ""
+          echo "── stats.json ──"
+          STATS=$(curl -sf --max-time 10 "https://whereismyinstance.com/stats.json" 2>&1)
+          if echo "$STATS" | grep -q '"ip_count"'; then
+            echo "  PASS: stats.json returned valid data"
+            PASS=$((PASS + 1))
+          else
+            echo "  FAIL: stats.json missing or malformed"
+            echo "  Response: $STATS"
+            FAIL=$((FAIL + 1))
+          fi
+
+          echo ""
+          echo "══════════════════════════════"
+          echo "Results: $PASS passed, $FAIL failed"
+          echo "══════════════════════════════"
+
+          if [ "$FAIL" -gt 0 ]; then
+            echo "::error::Health check failed: $FAIL/$((PASS + FAIL)) checks did not pass."
+            exit 1
+          fi
