@@ -175,13 +175,34 @@ resource "aws_s3_bucket_policy" "frontend" {
   policy = data.aws_iam_policy_document.s3_oac.json
 }
 
+# ── CloudFront Function: www → non-www redirect ───────────
+resource "aws_cloudfront_function" "www_redirect" {
+  provider = aws.us_east_1
+  name     = "${local.name}-www-redirect"
+  runtime  = "cloudfront-js-2.0"
+  publish  = true
+  code     = <<-EOT
+    function handler(event) {
+      var host = event.request.headers.host.value;
+      if (host.startsWith('www.')) {
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: { location: { value: 'https://' + host.slice(4) + event.request.uri } }
+        };
+      }
+      return event.request;
+    }
+  EOT
+}
+
 # ── CloudFront distribution ───────────────────────────────
 resource "aws_cloudfront_distribution" "cdn" {
   provider            = aws.us_east_1
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = [var.domain_name]
+  aliases             = [var.domain_name, "www.${var.domain_name}"]
   price_class         = "PriceClass_100"
   comment             = local.name
 
@@ -216,6 +237,12 @@ resource "aws_cloudfront_distribution" "cdn" {
     forwarded_values {
       query_string = false
       cookies { forward = "none" }
+    }
+
+    # Redirect www → non-www at the edge before hitting S3
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.www_redirect.arn
     }
 
     min_ttl     = 0
@@ -255,6 +282,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 }
 
 # ── Route 53 ─────────────────────────────────────────────
+# Apex (non-www)
 resource "aws_route53_record" "apex" {
   zone_id = var.hosted_zone_id
   name    = var.domain_name
@@ -270,6 +298,31 @@ resource "aws_route53_record" "apex" {
 resource "aws_route53_record" "apex_v6" {
   zone_id = var.hosted_zone_id
   name    = var.domain_name
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# www — points to same distribution; CloudFront Function does the 301
+resource "aws_route53_record" "www" {
+  zone_id = var.hosted_zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www_v6" {
+  zone_id = var.hosted_zone_id
+  name    = "www.${var.domain_name}"
   type    = "AAAA"
 
   alias {

@@ -113,6 +113,7 @@ jobs:
           aws s3 sync . "s3://${{ steps.tf.outputs.frontend_bucket }}/" \
             --exclude "*" \
             --include "index.html" \
+            --include "favicon.svg" \
             --cache-control "public, max-age=300" \
             --region "${{ env.AWS_REGION }}"
 

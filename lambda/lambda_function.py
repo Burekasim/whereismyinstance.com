@@ -2,6 +2,7 @@ import netaddr
 import json
 import csv
 import os
+import time
 from datetime import datetime, timezone
 
 
@@ -310,6 +311,11 @@ def digitalocean_ranges(ip):
     return respond(404, {"results": "No matches found"})
 
 
+# ── Stats cache (persists across warm Lambda invocations) ─
+_stats_cache: dict = {"result": None, "expires": 0.0}
+_STATS_TTL = 3600  # recalculate at most once per hour
+
+
 # ── Stats helpers ─────────────────────────────────────────
 
 def _ipv4_size(cidr: str) -> int:
@@ -333,6 +339,11 @@ def _file_mtime(name: str) -> str:
 # ── Stats endpoint ────────────────────────────────────────
 
 def get_stats():
+    # Return cached result if still fresh (warm Lambda reuse)
+    now_ts = time.monotonic()
+    if _stats_cache["result"] and now_ts < _stats_cache["expires"]:
+        return _stats_cache["result"]
+
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     providers = {}
 
@@ -403,7 +414,10 @@ def get_stats():
     except Exception:
         pass
 
-    return respond(200, {"providers": providers, "last_updated": now})
+    result = respond(200, {"providers": providers, "last_updated": now})
+    _stats_cache["result"] = result
+    _stats_cache["expires"] = now_ts + _STATS_TTL
+    return result
 
 
 # ── Lambda handler ────────────────────────────────────────
