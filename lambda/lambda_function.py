@@ -310,64 +310,96 @@ def digitalocean_ranges(ip):
     return respond(404, {"results": "No matches found"})
 
 
+# ── Stats helpers ─────────────────────────────────────────
+
+def _ipv4_size(cidr: str) -> int:
+    """Return the number of IPv4 addresses in a CIDR block; 0 for IPv6."""
+    try:
+        net = netaddr.IPNetwork(cidr)
+        return net.size if net.version == 4 else 0
+    except Exception:
+        return 0
+
+
+def _file_mtime(name: str) -> str:
+    """Return the file's last-modified time as ISO-8601, falling back to now."""
+    try:
+        ts = os.path.getmtime(_json_path(name))
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 # ── Stats endpoint ────────────────────────────────────────
 
 def get_stats():
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     providers = {}
 
+    # AWS — createDate format: "2024-03-01-12-00-00"
     try:
         with open(_json_path("aws_ranges.json")) as f:
             d = json.load(f)
-        providers["aws"] = {
-            "count": len(d.get("prefixes", [])),
-            "updated": d.get("createDate", now),
-        }
+        ip_count = sum(_ipv4_size(p["ip_prefix"]) for p in d.get("prefixes", []))
+        raw_date = d.get("createDate", "")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d-%H-%M-%S").replace(tzinfo=timezone.utc)
+            updated = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            updated = _file_mtime("aws_ranges.json")
+        providers["aws"] = {"ip_count": ip_count, "updated": updated}
     except Exception:
         pass
 
+    # GCP
     try:
         with open(_json_path("gcp_ranges.json")) as f:
             d = json.load(f)
-        providers["gcp"] = {
-            "count": sum(1 for p in d.get("prefixes", []) if "ipv4Prefix" in p),
-            "updated": now,
-        }
+        ip_count = sum(_ipv4_size(p["ipv4Prefix"]) for p in d.get("prefixes", []) if "ipv4Prefix" in p)
+        providers["gcp"] = {"ip_count": ip_count, "updated": _file_mtime("gcp_ranges.json")}
     except Exception:
         pass
 
+    # Oracle
     try:
         with open(_json_path("oracle_ranges.json")) as f:
             d = json.load(f)
-        count = sum(len(r["cidrs"]) for r in d.get("regions", []))
-        providers["oracle"] = {"count": count, "updated": now}
+        ip_count = sum(
+            _ipv4_size(c["cidr"])
+            for r in d.get("regions", [])
+            for c in r["cidrs"]
+        )
+        providers["oracle"] = {"ip_count": ip_count, "updated": _file_mtime("oracle_ranges.json")}
     except Exception:
         pass
 
+    # Azure — changeNumber is a version integer, not a date; use file mtime
     try:
         with open(_json_path("azure_ranges.json")) as f:
             d = json.load(f)
-        count = sum(
-            len(v["properties"]["addressPrefixes"]) for v in d.get("values", [])
+        ip_count = sum(
+            _ipv4_size(cidr)
+            for v in d.get("values", [])
+            for cidr in v["properties"]["addressPrefixes"]
         )
-        providers["azure"] = {
-            "count": count,
-            "updated": d.get("changeNumber", now),
-        }
+        providers["azure"] = {"ip_count": ip_count, "updated": _file_mtime("azure_ranges.json")}
     except Exception:
         pass
 
+    # Cloudflare (IPv4 only — file also contains IPv6 ranges)
     try:
         with open(_json_path("cloudflare_ranges.json")) as f:
-            cidrs = [l.strip() for l in f if l.strip()]
-        providers["cloudflare"] = {"count": len(cidrs), "updated": now}
+            cidrs = [line.strip() for line in f if line.strip()]
+        ip_count = sum(_ipv4_size(c) for c in cidrs)
+        providers["cloudflare"] = {"ip_count": ip_count, "updated": _file_mtime("cloudflare_ranges.json")}
     except Exception:
         pass
 
+    # DigitalOcean
     try:
         with open(_json_path("digitalocean_ranges.csv")) as f:
-            rows = list(csv.reader(f))
-        providers["digitalocean"] = {"count": len(rows), "updated": now}
+            ip_count = sum(_ipv4_size(row[0]) for row in csv.reader(f) if row)
+        providers["digitalocean"] = {"ip_count": ip_count, "updated": _file_mtime("digitalocean_ranges.csv")}
     except Exception:
         pass
 

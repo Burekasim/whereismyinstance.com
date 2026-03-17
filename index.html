@@ -370,7 +370,9 @@
         <span class="ex-ip" onclick="fillAndSearch('52.52.52.52')">52.52.52.52</span> ·
         <span class="ex-ip" onclick="fillAndSearch('20.20.20.20')">20.20.20.20</span> ·
         <span class="ex-ip" onclick="fillAndSearch('34.80.0.0')">34.80.0.0</span> ·
-        <span class="ex-ip" onclick="fillAndSearch('1.1.1.1')">1.1.1.1</span>
+        <span class="ex-ip" onclick="fillAndSearch('1.1.1.1')">1.1.1.1</span> ·
+        <span class="ex-ip" onclick="fillAndSearch('129.146.0.0')">129.146.0.0</span> ·
+        <span class="ex-ip" onclick="fillAndSearch('138.197.0.0')">138.197.0.0</span>
       </div>
     </div>
 
@@ -409,7 +411,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-aws-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -440,7 +442,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-azure-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -472,7 +474,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-gcp-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -503,7 +505,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-cloudflare-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -533,7 +535,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-oracle-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -563,7 +565,7 @@
       </div>
       <div class="cloud-stats">
         <div class="cloud-stat">
-          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-label">Total IPs</div>
           <div class="cloud-stat-value" id="stat-digitalocean-count"><div class="loading"></div></div>
         </div>
         <div class="cloud-stat">
@@ -787,11 +789,10 @@ async function loadStats() {
     if (!res.ok) throw new Error('no stats endpoint')
     const data = await res.json()
 
-    // Expected shape: { providers: { aws: { count: 123, updated: "2025-05-25T..." }, ... }, last_updated: "..." }
     const providers = data.providers || data
     for (const [key, info] of Object.entries(providers)) {
       const k = key.toLowerCase().replace(/\s/g, '')
-      setStatCount(k, info.count ?? info.ip_count ?? info.ranges)
+      setStatCount(k, info.ip_count ?? info.count ?? info.ranges)
       setStatUpdated(k, info.updated ?? info.last_updated ?? info.timestamp)
     }
 
@@ -807,10 +808,18 @@ async function loadStats() {
   }
 }
 
+function fmtIPs(n) {
+  if (n == null) return '—'
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K'
+  return n.toLocaleString()
+}
+
 function setStatCount(key, val) {
   const el = document.getElementById(`stat-${key}-count`)
   if (!el) return
-  el.innerHTML = val != null ? Number(val).toLocaleString() : '—'
+  el.innerHTML = val != null ? fmtIPs(Number(val)) : '—'
   el.style.color = val != null ? '' : 'var(--muted)'
 }
 
