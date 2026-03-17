@@ -11,8 +11,9 @@ variable "project_name" {
 }
 
 variable "cloudfront_distribution_id" {
-  description = "ID of the existing CloudFront distribution (e.g. E28DZQE1EZUNPH)"
+  description = "ID of the existing CloudFront distribution"
   type        = string
+  default     = "E28DZQE1EZUNPH"
 }
 
 variable "lambda_memory_mb" {

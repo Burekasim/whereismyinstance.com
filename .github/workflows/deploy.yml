@@ -72,15 +72,13 @@ jobs:
       - name: Terraform plan
         working-directory: terraform
         env:
-          TF_VAR_aws_region:                  ${{ env.AWS_REGION }}
-          TF_VAR_cloudfront_distribution_id:  ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
         working-directory: terraform
         env:
-          TF_VAR_aws_region:                  ${{ env.AWS_REGION }}
-          TF_VAR_cloudfront_distribution_id:  ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
         run: terraform apply -auto-approve tfplan
 
       # ── Fetch Terraform outputs ────────────────────────

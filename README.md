@@ -138,7 +138,6 @@ After that, all subsequent deploys are handled automatically by GitHub Actions o
 | `AWS_ROLE_ARN` | secret | IAM role ARN for OIDC assumption |
 | `AWS_REGION` | var | e.g. `us-east-1` |
 | `TF_BACKEND_BUCKET` | var | S3 bucket name for Terraform state |
-| `CLOUDFRONT_DISTRIBUTION_ID` | var | Existing CloudFront distribution ID |
 | `LAMBDA_FUNCTION_NAME` | var | `whereismyinstance-api` (set after first deploy) |
 
 ## IP range sources
