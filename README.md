@@ -134,8 +134,6 @@ After that, all subsequent deploys are handled automatically by GitHub Actions o
 
 | Name | Type | Description |
 |---|---|---|
-| `AWS_ACCESS_KEY_ID` | secret | IAM access key |
-| `AWS_SECRET_ACCESS_KEY` | secret | IAM secret key |
 | `ACM_CERTIFICATE_ARN` | secret | ACM cert ARN (must be in `us-east-1`) |
 | `AWS_REGION` | var | e.g. `us-east-1` |
 | `TF_BACKEND_BUCKET` | var | S3 bucket name for Terraform state |
