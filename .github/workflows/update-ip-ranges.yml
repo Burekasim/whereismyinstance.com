@@ -17,6 +17,7 @@ jobs:
   update:
     name: Download latest IP ranges and redeploy Lambda
     runs-on: ubuntu-latest
+    environment: prod
 
     steps:
       - uses: actions/checkout@v4
