@@ -2,11 +2,10 @@ import netaddr
 import json
 import csv
 import os
-import time
 from datetime import datetime, timezone
 
 
-# ── CORS headers returned with every response ─────────────
+# ── CORS headers ──────────────────────────────────────────
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,OPTIONS",
@@ -14,7 +13,6 @@ CORS = {
     "Content-Type": "application/json",
 }
 
-# Files live next to this module inside the Lambda zip
 BASE = os.path.dirname(__file__)
 
 
@@ -205,18 +203,108 @@ def reg2loc(region: str):
     return locations.get(region)
 
 
-# ── Provider lookup functions ─────────────────────────────
+# ── Pre-load all range data at module startup ─────────────
+# Lambda containers are reused across warm invocations.
+# Parsing once here means zero file I/O on every request.
 
-def aws_ranges(ip: str):
-    with open(_json_path("aws_ranges.json")) as f:
-        data = json.load(f)
-    services = []
-    ip_range = region = region_location = None
-    for p in data["prefixes"]:
-        if netaddr.IPAddress(ip) in netaddr.IPNetwork(p["ip_prefix"]):
+_AWS_NETS    = []  # [(IPNetwork, prefix_dict), ...]
+_GCP_NETS    = []  # [(IPNetwork, prefix_dict), ...]
+_ORACLE_NETS = []  # [(IPNetwork, cidr_str, region, tags), ...]
+_AZURE_NETS  = []  # [(IPNetwork, cidr, region, resource_id), ...]
+_CF_NETS     = []  # [IPNetwork, ...]
+_DO_ROWS     = []  # [(IPNetwork, row_dict), ...]
+
+
+def _init():
+    global _AWS_NETS, _GCP_NETS, _ORACLE_NETS, _AZURE_NETS, _CF_NETS, _DO_ROWS
+
+    try:
+        with open(_json_path("aws_ranges.json")) as f:
+            d = json.load(f)
+        _AWS_NETS = [
+            (netaddr.IPNetwork(p["ip_prefix"]), p)
+            for p in d.get("prefixes", [])
+        ]
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("gcp_ranges.json")) as f:
+            d = json.load(f)
+        _GCP_NETS = [
+            (netaddr.IPNetwork(p["ipv4Prefix"]), p)
+            for p in d.get("prefixes", [])
+            if "ipv4Prefix" in p
+        ]
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("oracle_ranges.json")) as f:
+            d = json.load(f)
+        for region_entry in d.get("regions", []):
+            for c in region_entry["cidrs"]:
+                try:
+                    _ORACLE_NETS.append((
+                        netaddr.IPNetwork(c["cidr"]),
+                        c["cidr"], region_entry["region"], c["tags"],
+                    ))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("azure_ranges.json")) as f:
+            d = json.load(f)
+        for resource in d.get("values", []):
+            region = resource["properties"]["region"]
+            if not region:
+                continue
+            for cidr in resource["properties"]["addressPrefixes"]:
+                try:
+                    _AZURE_NETS.append((
+                        netaddr.IPNetwork(cidr),
+                        cidr, region, resource["id"],
+                    ))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("cloudflare_ranges.json")) as f:
+            _CF_NETS[:] = [
+                netaddr.IPNetwork(line.strip())
+                for line in f
+                if line.strip()
+            ]
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("digitalocean_ranges.csv")) as f:
+            fieldnames = ["cidr", "country", "country-city", "city", "zipcode"]
+            for row in csv.DictReader(f, fieldnames=fieldnames):
+                try:
+                    _DO_ROWS.append((netaddr.IPNetwork(row["cidr"]), row))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+_init()
+
+
+# ── Provider lookup functions (use pre-loaded data) ───────
+
+def aws_ranges(ip_addr):
+    services, ip_range, region = [], None, None
+    for net, p in _AWS_NETS:
+        if ip_addr in net:
             ip_range = p["ip_prefix"]
             region = p["region"]
-            region_location = reg2loc(region)
             services.append(p["service"])
     if not services:
         return respond(404, {"results": "No matches found"})
@@ -224,70 +312,56 @@ def aws_ranges(ip: str):
         "cloud": "Amazon Web Services",
         "ip_range": ip_range,
         "region": region,
-        "region_location": region_location,
+        "region_location": reg2loc(region),
         "service": services,
     })
 
 
-def gcp_ranges(ip: str):
-    with open(_json_path("gcp_ranges.json")) as f:
-        data = json.load(f)
-    for p in data["prefixes"]:
-        if "ipv4Prefix" in p:
-            if netaddr.IPAddress(ip) in netaddr.IPNetwork(p["ipv4Prefix"]):
-                return respond(200, {
-                    "cloud": "Google Cloud Platform",
-                    "ip_range": p["ipv4Prefix"],
-                    "region": p["scope"],
-                    "region_location": reg2loc(p["scope"]),
-                    "service": [p["service"]],
-                })
+def gcp_ranges(ip_addr):
+    for net, p in _GCP_NETS:
+        if ip_addr in net:
+            return respond(200, {
+                "cloud": "Google Cloud Platform",
+                "ip_range": p["ipv4Prefix"],
+                "region": p["scope"],
+                "region_location": reg2loc(p["scope"]),
+                "service": [p["service"]],
+            })
     return respond(404, {"results": "No matches found"})
 
 
-def oracle_ranges(ip):
-    with open(_json_path("oracle_ranges.json")) as f:
-        data = json.load(f)
-    for region_entry in data["regions"]:
-        for cidr_entry in region_entry["cidrs"]:
-            if netaddr.IPAddress(ip) in netaddr.IPNetwork(cidr_entry["cidr"]):
-                return respond(200, {
-                    "cloud": "Oracle Cloud",
-                    "ip_range": cidr_entry["cidr"],
-                    "region": region_entry["region"],
-                    "region_location": reg2loc(region_entry["region"]),
-                    "service": cidr_entry["tags"],
-                })
+def oracle_ranges(ip_addr):
+    for net, cidr, region, tags in _ORACLE_NETS:
+        if ip_addr in net:
+            return respond(200, {
+                "cloud": "Oracle Cloud",
+                "ip_range": cidr,
+                "region": region,
+                "region_location": reg2loc(region),
+                "service": tags,
+            })
     return respond(404, {"results": "No matches found"})
 
 
-def azure_ranges(ip):
-    with open(_json_path("azure_ranges.json")) as f:
-        data = json.load(f)
-    for resource in data["values"]:
-        for cidr in resource["properties"]["addressPrefixes"]:
-            if netaddr.IPAddress(ip) in netaddr.IPNetwork(cidr):
-                region = resource["properties"]["region"]
-                if not region:
-                    continue
-                return respond(200, {
-                    "cloud": "Microsoft Azure",
-                    "ip_range": cidr,
-                    "region": region,
-                    "region_location": reg2loc(region),
-                    "service": [resource["id"]],
-                })
+def azure_ranges(ip_addr):
+    for net, cidr, region, resource_id in _AZURE_NETS:
+        if ip_addr in net:
+            return respond(200, {
+                "cloud": "Microsoft Azure",
+                "ip_range": cidr,
+                "region": region,
+                "region_location": reg2loc(region),
+                "service": [resource_id],
+            })
     return respond(404, {"results": "No matches found"})
 
 
-def cloudflare_ranges(ip):
-    with open(_json_path("cloudflare_ranges.json")) as f:
-        cidrs = [line.strip() for line in f if line.strip()]
-    for cidr in cidrs:
-        if netaddr.IPAddress(ip) in netaddr.IPNetwork(cidr):
+def cloudflare_ranges(ip_addr):
+    for net in _CF_NETS:
+        if ip_addr in net:
             return respond(200, {
                 "cloud": "CloudFlare",
-                "ip_range": cidr,
+                "ip_range": str(net),
                 "region": "Global",
                 "region_location": "Global",
                 "service": "CloudFlare WAF/CDN",
@@ -295,146 +369,38 @@ def cloudflare_ranges(ip):
     return respond(404, {"results": "No matches found"})
 
 
-def digitalocean_ranges(ip):
-    with open(_json_path("digitalocean_ranges.csv")) as f:
-        fieldnames = ["cidr", "country", "country-city", "city", "zipcode"]
-        for row in csv.DictReader(f, fieldnames=fieldnames):
-            if netaddr.IPAddress(ip) in netaddr.IPNetwork(row["cidr"]):
-                city_key = row["city"].replace(" ", "_").lower() + "_" + row["zipcode"]
-                return respond(200, {
-                    "cloud": "DigitalOcean",
-                    "ip_range": row["cidr"],
-                    "region": row["country"],
-                    "region_location": reg2loc(city_key),
-                    "service": "DigitalOcean",
-                })
+def digitalocean_ranges(ip_addr):
+    for net, row in _DO_ROWS:
+        if ip_addr in net:
+            city_key = row["city"].replace(" ", "_").lower() + "_" + row["zipcode"]
+            return respond(200, {
+                "cloud": "DigitalOcean",
+                "ip_range": row["cidr"],
+                "region": row["country"],
+                "region_location": reg2loc(city_key),
+                "service": "DigitalOcean",
+            })
     return respond(404, {"results": "No matches found"})
 
 
-# ── Stats cache (persists across warm Lambda invocations) ─
-_stats_cache: dict = {"result": None, "expires": 0.0}
-_STATS_TTL = 3600  # recalculate at most once per hour
-
-
-# ── Stats helpers ─────────────────────────────────────────
-
-def _ipv4_size(cidr: str) -> int:
-    """Return the number of IPv4 addresses in a CIDR block; 0 for IPv6."""
-    try:
-        net = netaddr.IPNetwork(cidr)
-        return net.size if net.version == 4 else 0
-    except Exception:
-        return 0
-
-
-def _download_date() -> str:
-    """Return the timestamp written by the downloader script, falling back to now."""
-    try:
-        with open(_json_path("metadata.json")) as f:
-            return json.load(f).get("downloaded_at", "")
-    except Exception:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-# ── Stats endpoint ────────────────────────────────────────
+# ── Stats — read precomputed file from S3/disk ────────────
 
 def get_stats():
-    # Return cached result if still fresh (warm Lambda reuse)
-    now_ts = time.monotonic()
-    if _stats_cache["result"] and now_ts < _stats_cache["expires"]:
-        return _stats_cache["result"]
-
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    providers = {}
-
-    # AWS — createDate format: "2024-03-01-12-00-00"
     try:
-        with open(_json_path("aws_ranges.json")) as f:
-            d = json.load(f)
-        ip_count = sum(_ipv4_size(p["ip_prefix"]) for p in d.get("prefixes", []))
-        raw_date = d.get("createDate", "")
-        try:
-            dt = datetime.strptime(raw_date, "%Y-%m-%d-%H-%M-%S").replace(tzinfo=timezone.utc)
-            updated = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        except Exception:
-            updated = _download_date()
-        providers["aws"] = {"ip_count": ip_count, "updated": updated}
+        with open(_json_path("stats.json")) as f:
+            data = json.load(f)
+        return respond(200, data)
     except Exception:
-        pass
-
-    # GCP
-    try:
-        with open(_json_path("gcp_ranges.json")) as f:
-            d = json.load(f)
-        ip_count = sum(_ipv4_size(p["ipv4Prefix"]) for p in d.get("prefixes", []) if "ipv4Prefix" in p)
-        providers["gcp"] = {"ip_count": ip_count, "updated": _download_date()}
-    except Exception:
-        pass
-
-    # Oracle
-    try:
-        with open(_json_path("oracle_ranges.json")) as f:
-            d = json.load(f)
-        ip_count = sum(
-            _ipv4_size(c["cidr"])
-            for r in d.get("regions", [])
-            for c in r["cidrs"]
-        )
-        providers["oracle"] = {"ip_count": ip_count, "updated": _download_date()}
-    except Exception:
-        pass
-
-    # Azure — changeNumber is a version integer, not a date; use file mtime
-    try:
-        with open(_json_path("azure_ranges.json")) as f:
-            d = json.load(f)
-        ip_count = sum(
-            _ipv4_size(cidr)
-            for v in d.get("values", [])
-            for cidr in v["properties"]["addressPrefixes"]
-        )
-        providers["azure"] = {"ip_count": ip_count, "updated": _download_date()}
-    except Exception:
-        pass
-
-    # Cloudflare (IPv4 only — file also contains IPv6 ranges)
-    try:
-        with open(_json_path("cloudflare_ranges.json")) as f:
-            cidrs = [line.strip() for line in f if line.strip()]
-        ip_count = sum(_ipv4_size(c) for c in cidrs)
-        providers["cloudflare"] = {"ip_count": ip_count, "updated": _download_date()}
-    except Exception:
-        pass
-
-    # DigitalOcean
-    try:
-        with open(_json_path("digitalocean_ranges.csv")) as f:
-            ip_count = sum(_ipv4_size(row[0]) for row in csv.reader(f) if row)
-        providers["digitalocean"] = {"ip_count": ip_count, "updated": _download_date()}
-    except Exception:
-        pass
-
-    result = respond(200, {"providers": providers, "last_updated": now})
-    _stats_cache["result"] = result
-    _stats_cache["expires"] = now_ts + _STATS_TTL
-    return result
+        return respond(503, {"error": "Stats not available"})
 
 
 # ── Lambda handler ────────────────────────────────────────
 
 def _extract_ip(event):
-    """
-    Supports REST API v1 (pathParameters.proxy) and HTTP API v2 (rawPath).
-    CloudFront forwards /api/<ip>, so strip the 'api/' prefix if present.
-    """
-    # HTTP API v2
     if event.get("version") == "2.0":
         raw = event.get("rawPath", "").strip("/")
-        # raw = "api/stats" or "api/52.52.52.52"
         parts = raw.split("/", 1)
         return parts[-1] if parts else ""
-
-    # REST API v1
     path_params = event.get("pathParameters") or {}
     proxy = path_params.get("proxy", "")
     if proxy.startswith("api/"):
@@ -443,7 +409,6 @@ def _extract_ip(event):
 
 
 def lambda_handler(event, context):
-    # CORS preflight
     if event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS" or \
        event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 204, "headers": CORS, "body": ""}
@@ -459,16 +424,10 @@ def lambda_handler(event, context):
     if not (netaddr.valid_ipv4(segment) or netaddr.valid_ipv6(segment)):
         return respond(400, {"error": "Invalid IP address", "received": segment})
 
-    ip = segment
+    ip_addr = netaddr.IPAddress(segment)
 
-    if aws_ranges(ip)["statusCode"] == 200:
-        return aws_ranges(ip)
-    if gcp_ranges(ip)["statusCode"] == 200:
-        return gcp_ranges(ip)
-    if azure_ranges(ip)["statusCode"] == 200:
-        return azure_ranges(ip)
-    if cloudflare_ranges(ip)["statusCode"] == 200:
-        return cloudflare_ranges(ip)
-    if digitalocean_ranges(ip)["statusCode"] == 200:
-        return digitalocean_ranges(ip)
-    return oracle_ranges(ip)
+    for lookup in (aws_ranges, gcp_ranges, azure_ranges, cloudflare_ranges, digitalocean_ranges):
+        result = lookup(ip_addr)
+        if result["statusCode"] == 200:
+            return result
+    return oracle_ranges(ip_addr)

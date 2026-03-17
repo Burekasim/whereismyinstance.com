@@ -117,6 +117,12 @@ jobs:
             --cache-control "public, max-age=300" \
             --region "${{ env.AWS_REGION }}"
 
+          # stats.json is precomputed — serve as a static file, no Lambda needed
+          aws s3 cp lambda/json/stats.json "s3://${{ steps.tf.outputs.frontend_bucket }}/stats.json" \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/json" \
+            --region "${{ env.AWS_REGION }}"
+
       # ── Invalidate CloudFront cache ────────────────────
       - name: Invalidate CloudFront
         run: |

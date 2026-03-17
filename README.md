@@ -139,6 +139,7 @@ After that, all subsequent deploys are handled automatically by GitHub Actions o
 | `AWS_REGION` | var | e.g. `us-east-1` |
 | `TF_BACKEND_BUCKET` | var | S3 bucket name for Terraform state |
 | `LAMBDA_FUNCTION_NAME` | var | `whereismyinstance-api` (set after first deploy) |
+| `FRONTEND_BUCKET` | var | S3 bucket name for frontend (needed by update-ip-ranges cron) |
 
 ## IP range sources
 

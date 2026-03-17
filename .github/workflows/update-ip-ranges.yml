@@ -62,6 +62,14 @@ jobs:
             --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
             --region "${{ env.AWS_REGION }}"
 
+      # ── Upload precomputed stats.json to S3 ────────────
+      - name: Upload stats.json to S3
+        run: |
+          aws s3 cp lambda/json/stats.json "s3://${{ vars.FRONTEND_BUCKET }}/stats.json" \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/json" \
+            --region "${{ env.AWS_REGION }}"
+
       # ── Smoke test ─────────────────────────────────────
       - name: Smoke test (invoke Lambda directly)
         run: |
