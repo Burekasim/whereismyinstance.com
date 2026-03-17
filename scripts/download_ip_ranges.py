@@ -125,6 +125,13 @@ def _ipv4_count(cidr: str) -> int:
         return 0
 
 
+def _cidr_version(cidr: str) -> int:
+    try:
+        return ipaddress.ip_network(cidr, strict=False).version
+    except Exception:
+        return 0
+
+
 def write_stats(downloaded_at: str):
     """Compute IP counts per provider and write stats.json next to the range files."""
     print("Computing stats...")
@@ -140,8 +147,12 @@ def write_stats(downloaded_at: str):
             updated = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
             updated = downloaded_at
+        ipv4_prefixes = [p["ip_prefix"] for p in d.get("prefixes", [])]
+        ipv6_prefixes = [p["ipv6_prefix"] for p in d.get("ipv6_prefixes", [])]
         providers["aws"] = {
-            "ip_count": sum(_ipv4_count(p["ip_prefix"]) for p in d.get("prefixes", [])),
+            "ip_count": sum(_ipv4_count(c) for c in ipv4_prefixes),
+            "ipv4_ranges": len(ipv4_prefixes),
+            "ipv6_ranges": len(ipv6_prefixes),
             "updated": updated,
         }
     except Exception as e:
@@ -150,8 +161,12 @@ def write_stats(downloaded_at: str):
     # GCP
     try:
         d = json.loads((OUT_DIR / "gcp_ranges.json").read_text())
+        v4 = [p["ipv4Prefix"] for p in d.get("prefixes", []) if "ipv4Prefix" in p]
+        v6 = [p["ipv6Prefix"] for p in d.get("prefixes", []) if "ipv6Prefix" in p]
         providers["gcp"] = {
-            "ip_count": sum(_ipv4_count(p["ipv4Prefix"]) for p in d.get("prefixes", []) if "ipv4Prefix" in p),
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
             "updated": downloaded_at,
         }
     except Exception as e:
@@ -160,8 +175,13 @@ def write_stats(downloaded_at: str):
     # Oracle
     try:
         d = json.loads((OUT_DIR / "oracle_ranges.json").read_text())
+        all_cidrs = [c["cidr"] for r in d.get("regions", []) for c in r["cidrs"]]
+        v4 = [c for c in all_cidrs if _cidr_version(c) == 4]
+        v6 = [c for c in all_cidrs if _cidr_version(c) == 6]
         providers["oracle"] = {
-            "ip_count": sum(_ipv4_count(c["cidr"]) for r in d.get("regions", []) for c in r["cidrs"]),
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
             "updated": downloaded_at,
         }
     except Exception as e:
@@ -170,12 +190,13 @@ def write_stats(downloaded_at: str):
     # Azure
     try:
         d = json.loads((OUT_DIR / "azure_ranges.json").read_text())
+        all_cidrs = [cidr for v in d.get("values", []) for cidr in v["properties"]["addressPrefixes"]]
+        v4 = [c for c in all_cidrs if _cidr_version(c) == 4]
+        v6 = [c for c in all_cidrs if _cidr_version(c) == 6]
         providers["azure"] = {
-            "ip_count": sum(
-                _ipv4_count(cidr)
-                for v in d.get("values", [])
-                for cidr in v["properties"]["addressPrefixes"]
-            ),
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
             "updated": downloaded_at,
         }
     except Exception as e:
@@ -183,9 +204,13 @@ def write_stats(downloaded_at: str):
 
     # Cloudflare
     try:
-        lines = (OUT_DIR / "cloudflare_ranges.json").read_text().splitlines()
+        lines = [l.strip() for l in (OUT_DIR / "cloudflare_ranges.json").read_text().splitlines() if l.strip()]
+        v4 = [l for l in lines if _cidr_version(l) == 4]
+        v6 = [l for l in lines if _cidr_version(l) == 6]
         providers["cloudflare"] = {
-            "ip_count": sum(_ipv4_count(l.strip()) for l in lines if l.strip()),
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
             "updated": downloaded_at,
         }
     except Exception as e:
@@ -194,8 +219,13 @@ def write_stats(downloaded_at: str):
     # DigitalOcean
     try:
         rows = list(csv.reader((OUT_DIR / "digitalocean_ranges.csv").read_text().splitlines()))
+        cidrs = [r[0] for r in rows if r]
+        v4 = [c for c in cidrs if _cidr_version(c) == 4]
+        v6 = [c for c in cidrs if _cidr_version(c) == 6]
         providers["digitalocean"] = {
-            "ip_count": sum(_ipv4_count(r[0]) for r in rows if r),
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
             "updated": downloaded_at,
         }
     except Exception as e:

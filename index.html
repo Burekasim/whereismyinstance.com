@@ -290,6 +290,29 @@
     }
     .cloud-stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
     .cloud-stat-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .count-wrap { position: relative; display: inline-block; }
+    .count-wrap[data-v4] { cursor: default; }
+    .ip-tooltip {
+      display: none;
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border-h);
+      border-radius: 8px; padding: 8px 12px; white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35); z-index: 100;
+      font-size: 0.72rem; font-weight: 600; color: var(--text);
+      pointer-events: none;
+    }
+    .ip-tooltip::after {
+      content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: var(--border-h);
+    }
+    .ip-tooltip-row { display: flex; align-items: center; gap: 6px; line-height: 1.8; }
+    .ip-tooltip-badge {
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 1px 5px; border-radius: 4px; min-width: 28px; text-align: center;
+    }
+    .ip-tooltip-badge.v4 { background: rgba(59,130,246,0.18); color: #60a5fa; }
+    .ip-tooltip-badge.v6 { background: rgba(139,92,246,0.18); color: #a78bfa; }
+    .count-wrap[data-v4]:hover .ip-tooltip { display: block; }
     .cloud-stat-value.loading {
       height: 20px; width: 70px; border-radius: 4px;
       background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-h) 50%, var(--surface-2) 75%);
@@ -513,7 +536,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-aws-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-aws-count-wrap">
+            <div class="cloud-stat-value" id="stat-aws-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-aws-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -544,7 +570,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-azure-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-azure-count-wrap">
+            <div class="cloud-stat-value" id="stat-azure-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-azure-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -576,7 +605,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-gcp-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-gcp-count-wrap">
+            <div class="cloud-stat-value" id="stat-gcp-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-gcp-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -607,7 +639,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-cloudflare-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-cloudflare-count-wrap">
+            <div class="cloud-stat-value" id="stat-cloudflare-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-cloudflare-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -637,7 +672,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-oracle-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-oracle-count-wrap">
+            <div class="cloud-stat-value" id="stat-oracle-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-oracle-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -667,7 +705,10 @@
       <div class="cloud-stats">
         <div class="cloud-stat">
           <div class="cloud-stat-label">Total IPs</div>
-          <div class="cloud-stat-value" id="stat-digitalocean-count"><div class="loading"></div></div>
+          <div class="count-wrap" id="stat-digitalocean-count-wrap">
+            <div class="cloud-stat-value" id="stat-digitalocean-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-digitalocean-tooltip"></div>
+          </div>
         </div>
         <div class="cloud-stat">
           <div class="cloud-stat-label">Last Updated</div>
@@ -937,7 +978,7 @@ async function loadStats() {
     const providers = data.providers || data
     for (const [key, info] of Object.entries(providers)) {
       const k = key.toLowerCase().replace(/\s/g, '')
-      setStatCount(k, info.ip_count ?? info.count ?? info.ranges)
+      setStatCount(k, info.ip_count ?? info.count ?? info.ranges, info.ipv4_ranges, info.ipv6_ranges)
       setStatUpdated(k, info.updated ?? info.last_updated ?? info.timestamp)
     }
 
@@ -961,11 +1002,31 @@ function fmtIPs(n) {
   return n.toLocaleString()
 }
 
-function setStatCount(key, val) {
+function setStatCount(key, val, ipv4Ranges, ipv6Ranges) {
   const el = document.getElementById(`stat-${key}-count`)
   if (!el) return
   el.innerHTML = val != null ? fmtIPs(Number(val)) : '—'
   el.style.color = val != null ? '' : 'var(--muted)'
+
+  const wrap = document.getElementById(`stat-${key}-count-wrap`)
+  const tip  = document.getElementById(`stat-${key}-tooltip`)
+  if (!wrap || !tip) return
+
+  if (ipv4Ranges != null || ipv6Ranges != null) {
+    wrap.dataset.v4 = '1'
+    tip.innerHTML = `
+      <div class="ip-tooltip-row">
+        <span class="ip-tooltip-badge v4">IPv4</span>
+        <span>${(ipv4Ranges ?? 0).toLocaleString()} ranges</span>
+      </div>
+      <div class="ip-tooltip-row">
+        <span class="ip-tooltip-badge v6">IPv6</span>
+        <span>${(ipv6Ranges ?? 0).toLocaleString()} ranges</span>
+      </div>`
+  } else {
+    delete wrap.dataset.v4
+    tip.innerHTML = ''
+  }
 }
 
 function setStatUpdated(key, val) {
