@@ -327,11 +327,11 @@ def _ipv4_size(cidr: str) -> int:
         return 0
 
 
-def _file_mtime(name: str) -> str:
-    """Return the file's last-modified time as ISO-8601, falling back to now."""
+def _download_date() -> str:
+    """Return the timestamp written by the downloader script, falling back to now."""
     try:
-        ts = os.path.getmtime(_json_path(name))
-        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(_json_path("metadata.json")) as f:
+            return json.load(f).get("downloaded_at", "")
     except Exception:
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -357,7 +357,7 @@ def get_stats():
             dt = datetime.strptime(raw_date, "%Y-%m-%d-%H-%M-%S").replace(tzinfo=timezone.utc)
             updated = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
-            updated = _file_mtime("aws_ranges.json")
+            updated = _download_date()
         providers["aws"] = {"ip_count": ip_count, "updated": updated}
     except Exception:
         pass
@@ -367,7 +367,7 @@ def get_stats():
         with open(_json_path("gcp_ranges.json")) as f:
             d = json.load(f)
         ip_count = sum(_ipv4_size(p["ipv4Prefix"]) for p in d.get("prefixes", []) if "ipv4Prefix" in p)
-        providers["gcp"] = {"ip_count": ip_count, "updated": _file_mtime("gcp_ranges.json")}
+        providers["gcp"] = {"ip_count": ip_count, "updated": _download_date()}
     except Exception:
         pass
 
@@ -380,7 +380,7 @@ def get_stats():
             for r in d.get("regions", [])
             for c in r["cidrs"]
         )
-        providers["oracle"] = {"ip_count": ip_count, "updated": _file_mtime("oracle_ranges.json")}
+        providers["oracle"] = {"ip_count": ip_count, "updated": _download_date()}
     except Exception:
         pass
 
@@ -393,7 +393,7 @@ def get_stats():
             for v in d.get("values", [])
             for cidr in v["properties"]["addressPrefixes"]
         )
-        providers["azure"] = {"ip_count": ip_count, "updated": _file_mtime("azure_ranges.json")}
+        providers["azure"] = {"ip_count": ip_count, "updated": _download_date()}
     except Exception:
         pass
 
@@ -402,7 +402,7 @@ def get_stats():
         with open(_json_path("cloudflare_ranges.json")) as f:
             cidrs = [line.strip() for line in f if line.strip()]
         ip_count = sum(_ipv4_size(c) for c in cidrs)
-        providers["cloudflare"] = {"ip_count": ip_count, "updated": _file_mtime("cloudflare_ranges.json")}
+        providers["cloudflare"] = {"ip_count": ip_count, "updated": _download_date()}
     except Exception:
         pass
 
@@ -410,7 +410,7 @@ def get_stats():
     try:
         with open(_json_path("digitalocean_ranges.csv")) as f:
             ip_count = sum(_ipv4_size(row[0]) for row in csv.reader(f) if row)
-        providers["digitalocean"] = {"ip_count": ip_count, "updated": _file_mtime("digitalocean_ranges.csv")}
+        providers["digitalocean"] = {"ip_count": ip_count, "updated": _download_date()}
     except Exception:
         pass
 

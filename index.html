@@ -23,6 +23,30 @@
       --radius:      14px;
     }
 
+    [data-theme="light"] {
+      --bg:          #f1f5f9;
+      --surface:     #ffffff;
+      --surface-2:   #f8fafc;
+      --border:      rgba(0,0,0,0.08);
+      --border-h:    rgba(0,0,0,0.14);
+      --text:        #0f172a;
+      --muted:       #94a3b8;
+      --muted-2:     #475569;
+      --accent:      #2563eb;
+      --accent-glow: rgba(37,99,235,0.15);
+    }
+    [data-theme="light"] nav {
+      background: rgba(241,245,249,0.9);
+    }
+    [data-theme="light"] .hero-bg {
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,0.10) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(139,92,246,0.06) 0%, transparent 60%);
+    }
+    [data-theme="light"] .explainer {
+      background: var(--surface);
+    }
+
     html { scroll-behavior: smooth; }
 
     body {
@@ -61,6 +85,13 @@
       transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--text); }
+    .theme-btn {
+      background: none; border: 1px solid var(--border-h); border-radius: 8px;
+      width: 32px; height: 32px; cursor: pointer; color: var(--muted-2);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .theme-btn:hover { border-color: var(--accent); color: var(--text); }
 
     /* ── Hero ─────────────────────────────────────────── */
     .hero {
@@ -331,6 +362,17 @@
     <a href="#how-it-works">How it works</a>
     <a href="https://whereismyinstance.com/api/52.52.52.52" target="_blank">API</a>
   </div>
+  <button class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">
+    <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
 </nav>
 
 <!-- ── Hero ───────────────────────────────────────────── -->
@@ -849,6 +891,30 @@ function updateGlobalBadge(ts) {
     el.textContent = `Updated ${ts}`
   }
 }
+
+// ── Theme toggle ──────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme)
+  const sun  = document.getElementById('themeIconSun')
+  const moon = document.getElementById('themeIconMoon')
+  if (theme === 'light') {
+    sun.style.display  = 'none'
+    moon.style.display = ''
+  } else {
+    sun.style.display  = ''
+    moon.style.display = 'none'
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark'
+  const next = current === 'dark' ? 'light' : 'dark'
+  localStorage.setItem('theme', next)
+  applyTheme(next)
+}
+
+// Apply saved preference before first paint
+applyTheme(localStorage.getItem('theme') || 'dark')
 
 loadStats()
 </script>

@@ -115,6 +115,16 @@ DOWNLOADERS = [
     download_digitalocean,
 ]
 
+def write_metadata():
+    """Record the UTC timestamp of this download run."""
+    import datetime
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    meta = {"downloaded_at": ts}
+    path = OUT_DIR / "metadata.json"
+    path.write_text(json.dumps(meta))
+    print(f"  Wrote {path} (downloaded_at={ts})")
+
+
 if __name__ == "__main__":
     errors = []
     for fn in DOWNLOADERS:
@@ -123,6 +133,8 @@ if __name__ == "__main__":
         except Exception as exc:
             print(f"  ERROR in {fn.__name__}: {exc}", file=sys.stderr)
             errors.append(fn.__name__)
+
+    write_metadata()
 
     if errors:
         print(f"\nFailed: {', '.join(errors)}", file=sys.stderr)
