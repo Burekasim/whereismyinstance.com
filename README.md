@@ -135,11 +135,10 @@ After that, all subsequent deploys are handled automatically by GitHub Actions o
 | Name | Type | Description |
 |---|---|---|
 | `AWS_ROLE_ARN` | secret | IAM role ARN for OIDC assumption |
-| `ACM_CERTIFICATE_ARN` | secret | ACM cert ARN (must be in `us-east-1`) |
+| `AWS_ROLE_ARN` | secret | IAM role ARN for OIDC assumption |
 | `AWS_REGION` | var | e.g. `us-east-1` |
 | `TF_BACKEND_BUCKET` | var | S3 bucket name for Terraform state |
-| `DOMAIN_NAME` | var | e.g. `whereismyinstance.com` |
-| `HOSTED_ZONE_ID` | var | Route 53 hosted zone ID |
+| `CLOUDFRONT_DISTRIBUTION_ID` | var | Existing CloudFront distribution ID |
 | `LAMBDA_FUNCTION_NAME` | var | `whereismyinstance-api` (set after first deploy) |
 
 ## IP range sources

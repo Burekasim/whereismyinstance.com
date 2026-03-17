@@ -44,7 +44,6 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      # Available to the function if needed
       PROJECT = local.name
     }
   }
@@ -101,13 +100,13 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gw.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      routeKey       = "$context.routeKey"
-      status         = "$context.status"
-      responseLength = "$context.responseLength"
+      requestId        = "$context.requestId"
+      ip               = "$context.identity.sourceIp"
+      requestTime      = "$context.requestTime"
+      httpMethod       = "$context.httpMethod"
+      routeKey         = "$context.routeKey"
+      status           = "$context.status"
+      responseLength   = "$context.responseLength"
       integrationError = "$context.integrationErrorMessage"
     })
   }
@@ -144,15 +143,12 @@ resource "aws_s3_bucket_versioning" "frontend" {
   versioning_configuration { status = "Enabled" }
 }
 
-# ── CloudFront origin access control ─────────────────────
-resource "aws_cloudfront_origin_access_control" "frontend" {
-  name                              = "${local.name}-oac"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
+# ── Existing CloudFront distribution ──────────────────────
+data "aws_cloudfront_distribution" "cdn" {
+  id = var.cloudfront_distribution_id
 }
 
-# S3 bucket policy — allow CloudFront OAC only
+# S3 bucket policy — allow the existing CloudFront distribution only
 data "aws_iam_policy_document" "s3_oac" {
   statement {
     actions   = ["s3:GetObject"]
@@ -164,7 +160,7 @@ data "aws_iam_policy_document" "s3_oac" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.cdn.arn]
+      values   = [data.aws_cloudfront_distribution.cdn.arn]
     }
   }
 }
@@ -172,101 +168,4 @@ data "aws_iam_policy_document" "s3_oac" {
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
   policy = data.aws_iam_policy_document.s3_oac.json
-}
-
-# ── CloudFront distribution ───────────────────────────────
-locals {
-  s3_origin_id  = "s3-frontend"
-  apigw_origin_id = "apigw-api"
-}
-
-resource "aws_cloudfront_distribution" "cdn" {
-  provider            = aws.us_east_1
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
-  aliases             = [var.domain_name]
-  price_class         = "PriceClass_100"
-  comment             = local.name
-
-  # ── Origin 1: S3 frontend ────────────────────────────
-  origin {
-    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id                = local.s3_origin_id
-    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
-  }
-
-  # ── Origin 2: API Gateway ────────────────────────────
-  origin {
-    domain_name = replace(aws_apigatewayv2_api.api.api_endpoint, "https://", "")
-    origin_id   = local.apigw_origin_id
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
-
-  # ── Default behaviour: S3 ────────────────────────────
-  default_cache_behavior {
-    target_origin_id       = local.s3_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 3600
-    max_ttl     = 86400
-  }
-
-  # ── /api/* behaviour: API Gateway (no caching) ───────
-  ordered_cache_behavior {
-    path_pattern           = "/api/*"
-    target_origin_id       = local.apigw_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Origin", "Access-Control-Request-Headers", "Access-Control-Request-Method"]
-      cookies { forward = "none" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = var.acm_certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-}
-
-# ── Route 53 DNS ──────────────────────────────────────────
-resource "aws_route53_record" "apex" {
-  zone_id = var.hosted_zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.cdn.domain_name
-    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
-    evaluate_target_health = false
-  }
 }

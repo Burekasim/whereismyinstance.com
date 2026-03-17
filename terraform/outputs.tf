@@ -1,15 +1,15 @@
 output "cloudfront_domain" {
-  description = "CloudFront distribution domain (use for DNS CNAME if not using Route 53)"
-  value       = aws_cloudfront_distribution.cdn.domain_name
+  description = "CloudFront distribution domain name"
+  value       = data.aws_cloudfront_distribution.cdn.domain_name
 }
 
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID (used for cache invalidation in CI)"
-  value       = aws_cloudfront_distribution.cdn.id
+  value       = data.aws_cloudfront_distribution.cdn.id
 }
 
 output "api_gateway_endpoint" {
-  description = "Raw API Gateway endpoint (not exposed publicly; traffic goes through CloudFront)"
+  description = "Raw API Gateway endpoint (traffic goes through CloudFront /api/*)"
   value       = aws_apigatewayv2_api.api.api_endpoint
 }
 
@@ -21,9 +21,4 @@ output "lambda_function_name" {
 output "frontend_bucket" {
   description = "S3 bucket name for frontend files"
   value       = aws_s3_bucket.frontend.id
-}
-
-output "website_url" {
-  description = "Public website URL"
-  value       = "https://${var.domain_name}"
 }
