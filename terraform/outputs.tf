@@ -1,11 +1,11 @@
 output "cloudfront_domain" {
   description = "CloudFront distribution domain name"
-  value       = data.aws_cloudfront_distribution.cdn.domain_name
+  value       = aws_cloudfront_distribution.cdn.domain_name
 }
 
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID (used for cache invalidation in CI)"
-  value       = data.aws_cloudfront_distribution.cdn.id
+  value       = aws_cloudfront_distribution.cdn.id
 }
 
 output "api_gateway_endpoint" {
@@ -21,4 +21,9 @@ output "lambda_function_name" {
 output "frontend_bucket" {
   description = "S3 bucket name for frontend files"
   value       = aws_s3_bucket.frontend.id
+}
+
+output "website_url" {
+  description = "Public website URL"
+  value       = "https://${var.domain_name}"
 }
