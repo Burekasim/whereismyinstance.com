@@ -123,6 +123,27 @@ jobs:
             --content-type "application/json" \
             --region "${{ env.AWS_REGION }}"
 
+          # SEO / LLMO static files — explicit content types required for S3
+          aws s3 cp robots.txt "s3://${{ steps.tf.outputs.frontend_bucket }}/robots.txt" \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/plain" \
+            --region "${{ env.AWS_REGION }}"
+
+          aws s3 cp sitemap.xml "s3://${{ steps.tf.outputs.frontend_bucket }}/sitemap.xml" \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/xml" \
+            --region "${{ env.AWS_REGION }}"
+
+          aws s3 cp llms.txt "s3://${{ steps.tf.outputs.frontend_bucket }}/llms.txt" \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/plain" \
+            --region "${{ env.AWS_REGION }}"
+
+          aws s3 cp llms-full.txt "s3://${{ steps.tf.outputs.frontend_bucket }}/llms-full.txt" \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/plain" \
+            --region "${{ env.AWS_REGION }}"
+
       # ── Invalidate CloudFront cache ────────────────────
       - name: Invalidate CloudFront
         run: |

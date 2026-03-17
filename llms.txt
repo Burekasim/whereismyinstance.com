@@ -1,0 +1,54 @@
+# WhereIsMyInstance.com
+
+> WhereIsMyInstance.com is a free cloud IP lookup tool. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and the exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean. IP range data is fetched daily from each provider's official published source. No account or API key required.
+
+## Main Content
+
+- [IP Lookup Tool](https://whereismyinstance.com/): Enter any IPv4 or IPv6 address in the search box to identify its cloud provider, region, service name, and CIDR prefix.
+- [REST API](https://whereismyinstance.com/api/52.52.52.52): GET /api/<ip> — returns JSON with cloud provider details. No authentication required. Example: GET https://whereismyinstance.com/api/52.52.52.52
+
+## API
+
+The API is public and requires no authentication or API key.
+
+- Endpoint: `GET https://whereismyinstance.com/api/<ip>`
+- Response fields: `cloud` (provider name), `region`, `region_location`, `service`, `ip_range` (CIDR prefix)
+- Stats endpoint: `GET https://whereismyinstance.com/api/stats` — returns IP range counts and last-updated timestamps per provider
+
+Example response for 52.52.52.52:
+```json
+{
+  "cloud": "Amazon Web Services",
+  "ip_range": "52.52.0.0/15",
+  "region": "us-west-2",
+  "region_location": "US West (Oregon)",
+  "service": ["AMAZON", "EC2"]
+}
+```
+
+## CLI Shortcut
+
+Add this function to ~/.zshrc or ~/.bashrc to look up IPs from the terminal:
+```
+i () { curl -s https://whereismyinstance.com/api/$1 | python3 -m json.tool; }
+```
+Usage: `i 52.52.52.52`
+
+## Supported Cloud Providers
+
+- Amazon Web Services (AWS) — source: ip-ranges.amazonaws.com/ip-ranges.json
+- Microsoft Azure — source: Microsoft Azure ServiceTags JSON (microsoft.com download)
+- Google Cloud Platform (GCP) — source: gstatic.com/ipranges/cloud.json
+- Cloudflare — source: cloudflare.com/ips-v4 and cloudflare.com/ips-v6
+- Oracle Cloud Infrastructure (OCI) — source: docs.oracle.com public_ip_ranges.json
+- DigitalOcean — source: digitalocean.com/geo/google.csv
+
+## How It Works
+
+IP ranges are downloaded daily from each provider's official source and bundled into an AWS Lambda function. Lookups use longest-prefix match against all known CIDR blocks. The most specific matching block wins, returning the provider, region, and service for that IP.
+
+Architecture: CloudFront → API Gateway → Lambda (Python) / S3 (static frontend)
+
+## Optional
+
+- [Full text version](https://whereismyinstance.com/llms-full.txt): Complete page content for larger context windows.

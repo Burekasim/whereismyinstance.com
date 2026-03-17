@@ -4,8 +4,110 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Where Is My Instance? — Cloud IP Lookup</title>
-  <meta name="description" content="Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle, and DigitalOcean." />
+  <meta name="description" content="Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, and DigitalOcean. Free REST API included." />
+  <link rel="canonical" href="https://whereismyinstance.com/" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://whereismyinstance.com/" />
+  <meta property="og:title"       content="Where Is My Instance? — Cloud IP Lookup" />
+  <meta property="og:description" content="Instantly identify which cloud provider owns any IP address. Free tool and REST API covering AWS, Azure, GCP, Cloudflare, Oracle Cloud, and DigitalOcean." />
+  <meta property="og:image"       content="https://whereismyinstance.com/favicon.svg" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary" />
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://whereismyinstance.com/#org",
+        "name": "WhereIsMyInstance",
+        "url": "https://whereismyinstance.com",
+        "logo": "https://whereismyinstance.com/favicon.svg",
+        "description": "Free cloud IP lookup tool that identifies which cloud provider owns any IP address, including the region, service, and CIDR prefix.",
+        "sameAs": ["https://www.linkedin.com/in/avi-keinan-14828738/"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://whereismyinstance.com/#website",
+        "url": "https://whereismyinstance.com",
+        "name": "WhereIsMyInstance.com",
+        "description": "Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, and DigitalOcean.",
+        "publisher": { "@id": "https://whereismyinstance.com/#org" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://whereismyinstance.com/api/{ip_address}"
+          },
+          "query-input": "required name=ip_address"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://whereismyinstance.com/#app",
+        "name": "WhereIsMyInstance",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "url": "https://whereismyinstance.com",
+        "description": "Free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to identify its cloud provider, region, service, and CIDR prefix.",
+        "provider": { "@id": "https://whereismyinstance.com/#org" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://whereismyinstance.com/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is whereismyinstance.com?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "WhereIsMyInstance.com is a free tool that identifies which cloud provider owns any IP address. Enter any IPv4 or IPv6 address and instantly see the provider (AWS, Azure, GCP, Cloudflare, Oracle Cloud, or DigitalOcean), the region, service name, and the matching CIDR prefix."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I find which cloud provider owns an IP address?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Visit whereismyinstance.com and enter the IP address in the search box, then click Look up. You can also use the REST API directly: GET https://whereismyinstance.com/api/<ip> returns a JSON response with the provider, region, service, and CIDR prefix. No authentication or API key is required."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does whereismyinstance.com have an API?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Send a GET request to https://whereismyinstance.com/api/<ip> where <ip> is any IPv4 or IPv6 address. The response is JSON with fields: cloud (provider name), region, service, ip_range (CIDR prefix), and region_location. No authentication or API key is required."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which cloud providers are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "WhereIsMyInstance supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean. IP range data is fetched daily from each provider's official published source."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How current is the IP range data?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "IP range data is updated every 24 hours by downloading the latest files directly from each cloud provider's official source: AWS ip-ranges.amazonaws.com/ip-ranges.json, GCP gstatic.com/ipranges/cloud.json, Azure ServiceTags JSON from microsoft.com, Cloudflare cloudflare.com/ips-v4 and /ips-v6, Oracle docs.oracle.com public_ip_ranges.json, and DigitalOcean digitalocean.com/geo/google.csv."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -446,11 +548,6 @@
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <div class="hero-content">
-
-    <div class="badge">
-      <span class="badge-dot"></span>
-      Live cloud IP data
-    </div>
 
     <h1>Where Is My Instance?</h1>
     <p class="hero-sub">

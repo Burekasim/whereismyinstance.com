@@ -1,0 +1,213 @@
+# WhereIsMyInstance.com — Full Content
+
+> WhereIsMyInstance.com is a free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean. No account or API key required.
+
+---
+
+## What the tool does
+
+WhereIsMyInstance.com lets you identify which cloud provider owns any IP address. The tool covers all six major providers and tells you not just the provider name, but also:
+
+- The cloud region (e.g. us-east-1, eastus, us-central1)
+- The physical location of that region (e.g. US East (N. Virginia), East US (Virginia))
+- The service or network type (e.g. EC2, S3, AzureActiveDirectory, GoogleCloud)
+- The exact CIDR prefix that contains the IP (e.g. 52.52.0.0/15)
+
+---
+
+## REST API
+
+The API is completely public. No authentication, no API key, no rate limits published.
+
+### IP lookup
+
+```
+GET https://whereismyinstance.com/api/<ip>
+```
+
+Replace `<ip>` with any IPv4 or IPv6 address.
+
+**Example request:**
+```
+curl https://whereismyinstance.com/api/52.52.52.52
+```
+
+**Example response (AWS IP):**
+```json
+{
+  "cloud": "Amazon Web Services",
+  "ip_range": "52.52.0.0/15",
+  "region": "us-west-2",
+  "region_location": "US West (Oregon)",
+  "service": ["AMAZON", "EC2"]
+}
+```
+
+**Example response (Azure IP):**
+```json
+{
+  "cloud": "Microsoft Azure",
+  "ip_range": "52.168.0.0/16",
+  "region": "eastus",
+  "region_location": "East US (Virginia)",
+  "service": "AzureCloud"
+}
+```
+
+**Example response (GCP IP):**
+```json
+{
+  "cloud": "Google Cloud",
+  "ip_range": "34.80.0.0/15",
+  "region": "asia-east1",
+  "region_location": "Taiwan",
+  "service": "Google Cloud"
+}
+```
+
+**Response when IP is not in any known cloud range:**
+HTTP 404, body:
+```json
+{ "message": "Not found" }
+```
+
+### Stats endpoint
+
+```
+GET https://whereismyinstance.com/api/stats
+```
+
+Returns IP range counts and last-updated timestamps for each provider.
+
+**Example response:**
+```json
+{
+  "providers": {
+    "aws":          { "ip_count": 160000000, "updated": "2026-03-17T02:00:00Z" },
+    "azure":        { "ip_count": 350000000, "updated": "2026-03-17T02:00:00Z" },
+    "gcp":          { "ip_count": 12000000,  "updated": "2026-03-17T02:00:00Z" },
+    "cloudflare":   { "ip_count": 30000000,  "updated": "2026-03-17T02:00:00Z" },
+    "oracle":       { "ip_count": 9000000,   "updated": "2026-03-17T02:00:00Z" },
+    "digitalocean": { "ip_count": 8000000,   "updated": "2026-03-17T02:00:00Z" }
+  },
+  "last_updated": "2026-03-17T02:05:00Z"
+}
+```
+
+---
+
+## CLI Shortcut
+
+Add this shell function to your `~/.zshrc` or `~/.bashrc`:
+
+```bash
+i () { curl -s https://whereismyinstance.com/api/$1 | python3 -m json.tool; }
+```
+
+After reloading your shell, use it like this:
+
+```
+i 52.52.52.52
+i 52.168.0.1
+i 2600:1f18::1
+```
+
+---
+
+## Supported Cloud Providers
+
+### Amazon Web Services (AWS)
+- Source: https://ip-ranges.amazonaws.com/ip-ranges.json
+- Updated: daily (AWS updates this file when IP ranges change)
+- Includes: EC2, S3, CloudFront, Lambda, and all other AWS services across all regions
+
+### Microsoft Azure
+- Source: Azure ServiceTags Public JSON (downloaded from microsoft.com)
+- Updated: daily
+- Includes: all Azure services and regions globally
+
+### Google Cloud Platform (GCP)
+- Source: https://www.gstatic.com/ipranges/cloud.json
+- Updated: daily
+- Includes: all GCP services and regions globally
+
+### Cloudflare
+- Source: https://www.cloudflare.com/ips-v4 and https://www.cloudflare.com/ips-v6
+- Updated: daily
+- Includes: Cloudflare's CDN, DDoS protection, and network edge IPs
+
+### Oracle Cloud Infrastructure (OCI)
+- Source: https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json
+- Updated: daily
+- Includes: all OCI regions globally
+
+### DigitalOcean
+- Source: https://digitalocean.com/geo/google.csv
+- Updated: daily
+- Includes: all DigitalOcean data center IPs globally
+
+---
+
+## How it works
+
+### IP range lookup mechanism
+
+Every major cloud provider publishes a list of the IP address ranges they use — for their services, regions, and edge networks. WhereIsMyInstance downloads these files daily and bundles them into an AWS Lambda function.
+
+When you look up an IP address, the Lambda function performs a **longest-prefix match** against all known CIDR blocks across all six providers. The most specific matching block wins, and the function returns the provider, region, service, and CIDR prefix associated with that block.
+
+For example, if IP 52.52.52.52 falls inside both 52.0.0.0/8 and 52.52.0.0/15, the /15 block wins because it is more specific.
+
+### Architecture
+
+```
+User → CloudFront → /api/* → API Gateway (HTTP v2) → Lambda (Python 3.12)
+                  → default → S3 (static frontend)
+```
+
+- Frontend: single-page HTML file served from S3 via CloudFront
+- API: Python Lambda function behind API Gateway
+- IP data: provider range files bundled inside the Lambda zip, refreshed daily by GitHub Actions
+- Stats: precomputed stats.json served as a static file from S3/CloudFront
+
+### Data freshness
+
+IP range data is downloaded every 24 hours at 02:00 UTC from each provider's official source. The Lambda function is redeployed with the fresh data. The stats.json file is updated at the same time and served statically from CloudFront.
+
+---
+
+## Frequently Asked Questions
+
+**What is whereismyinstance.com?**
+WhereIsMyInstance.com is a free tool that identifies which cloud provider owns any IP address. Enter any IPv4 or IPv6 address and instantly see the provider, region, service name, and CIDR prefix.
+
+**How do I find which cloud provider owns an IP address?**
+Visit whereismyinstance.com and enter the IP address in the search box, then click Look up. You can also use the REST API: GET https://whereismyinstance.com/api/<ip> returns a JSON response. No authentication required.
+
+**Does whereismyinstance.com have an API?**
+Yes. Send a GET request to https://whereismyinstance.com/api/<ip> where <ip> is any IPv4 or IPv6 address. The response is JSON with fields: cloud, region, region_location, service, and ip_range. No authentication or API key is required.
+
+**Which cloud providers are supported?**
+Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean.
+
+**How current is the IP range data?**
+IP range data is updated every 24 hours from each provider's official source.
+
+**What happens if an IP is not in any cloud range?**
+The API returns HTTP 404. The web UI shows "not found in any known cloud IP range — it may be residential, ISP, or a private network."
+
+**Is the API free?**
+Yes, completely free with no authentication or API key required.
+
+**Who built this?**
+Built by Avi Keinan. Source: LinkedIn at linkedin.com/in/avi-keinan-14828738/
+
+---
+
+## Use cases
+
+- Identify cloud-hosted traffic in firewall logs
+- Verify that an IP belongs to a known cloud provider before allowing it through a firewall
+- Debug routing issues in multi-cloud environments
+- Security investigations: determine if a suspicious IP is a cloud instance
+- DevOps automation: enrich IP addresses in monitoring pipelines with cloud provider context
