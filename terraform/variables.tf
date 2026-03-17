@@ -1,0 +1,38 @@
+variable "aws_region" {
+  description = "AWS region for all resources except CloudFront ACM cert (always us-east-1)"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "project_name" {
+  description = "Short name used as a prefix for all resources"
+  type        = string
+  default     = "whereismyinstance"
+}
+
+variable "domain_name" {
+  description = "Primary domain, e.g. whereismyinstance.com"
+  type        = string
+}
+
+variable "hosted_zone_id" {
+  description = "Route 53 hosted zone ID for the domain"
+  type        = string
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN (must be in us-east-1) for the CloudFront distribution"
+  type        = string
+}
+
+variable "lambda_memory_mb" {
+  description = "Lambda memory allocation in MB"
+  type        = number
+  default     = 512
+}
+
+variable "lambda_timeout_sec" {
+  description = "Lambda timeout in seconds"
+  type        = number
+  default     = 15
+}

@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Where Is My Instance? — Cloud IP Lookup</title>
+  <meta name="description" content="Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle, and DigitalOcean." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #080c18;
+      --surface:     #0e1525;
+      --surface-2:   #141d2f;
+      --border:      rgba(255,255,255,0.07);
+      --border-h:    rgba(255,255,255,0.14);
+      --text:        #e2e8f0;
+      --muted:       #64748b;
+      --muted-2:     #94a3b8;
+      --accent:      #3b82f6;
+      --accent-glow: rgba(59,130,246,0.25);
+      --radius:      14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ──────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      height: 56px;
+      background: rgba(8,12,24,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 0.95rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand .logo-dot {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 900; color: #fff;
+    }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a {
+      font-size: 0.85rem; color: var(--muted-2); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── Hero ─────────────────────────────────────────── */
+    .hero {
+      position: relative; overflow: hidden;
+      padding: 80px 24px 72px;
+      text-align: center;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,0.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(139,92,246,0.10) 0%, transparent 60%);
+    }
+    .hero-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 80%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25);
+      border-radius: 99px; padding: 4px 14px;
+      font-size: 0.75rem; color: #93c5fd; font-weight: 500;
+      margin-bottom: 24px;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #e2e8f0 30%, #93c5fd 70%, #a78bfa 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 1.1rem; color: var(--muted-2); margin-bottom: 48px;
+      max-width: 520px; margin-left: auto; margin-right: auto;
+    }
+
+    /* ── Search ───────────────────────────────────────── */
+    .search-wrap {
+      max-width: 580px; margin: 0 auto 32px;
+      position: relative;
+    }
+    .search-box {
+      display: flex; align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border-h);
+      border-radius: 16px;
+      padding: 6px 6px 6px 20px;
+      gap: 10px;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-box:focus-within {
+      border-color: rgba(59,130,246,0.5);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .search-icon { color: var(--muted); flex-shrink: 0; }
+    .search-input {
+      flex: 1; background: none; border: none; outline: none;
+      color: var(--text); font-size: 1rem; font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .search-input::placeholder { color: var(--muted); font-family: inherit; font-size: 0.95rem; }
+    .search-btn {
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border: none; border-radius: 10px;
+      padding: 10px 22px;
+      color: #fff; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+    }
+    .search-btn:hover { opacity: 0.9; }
+    .search-btn:active { transform: scale(0.97); }
+    .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .search-examples {
+      font-size: 0.78rem; color: var(--muted);
+      display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
+    }
+    .search-examples span { color: var(--muted-2); }
+    .ex-ip {
+      font-family: monospace; font-size: 0.8rem;
+      color: #93c5fd; cursor: pointer; text-decoration: underline;
+      text-underline-offset: 2px; text-decoration-style: dotted;
+    }
+    .ex-ip:hover { color: #bfdbfe; }
+
+    /* ── Result card ──────────────────────────────────── */
+    .result-wrap {
+      max-width: 580px; margin: 0 auto;
+      transition: opacity 0.3s;
+    }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border-h);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      text-align: left;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .result-provider-logo {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .result-title { font-size: 1.15rem; font-weight: 700; }
+    .result-subtitle { font-size: 0.82rem; color: var(--muted-2); margin-top: 1px; }
+    .result-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .result-field {
+      background: var(--surface-2); border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .result-field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 3px; }
+    .result-field-value { font-size: 0.9rem; font-weight: 600; font-family: monospace; word-break: break-all; }
+    .result-field.full { grid-column: 1 / -1; }
+    .result-not-found {
+      text-align: center; padding: 24px;
+      color: var(--muted-2); font-size: 0.9rem;
+    }
+    .result-not-found .big { font-size: 2rem; margin-bottom: 8px; }
+    .result-error {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 10px; padding: 14px 18px;
+      color: #fca5a5; font-size: 0.9rem;
+    }
+
+    /* ── Cloud cards ──────────────────────────────────── */
+    .section { padding: 64px 24px; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700;
+      letter-spacing: -0.02em; margin-bottom: 8px;
+    }
+    .section-sub { color: var(--muted-2); font-size: 0.95rem; margin-bottom: 40px; }
+
+    .cloud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .cloud-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .cloud-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: var(--cloud-color);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .cloud-card:hover { border-color: var(--border-h); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .cloud-card:hover::before { opacity: 1; }
+
+    .cloud-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .cloud-logo {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; flex-shrink: 0;
+      background: var(--cloud-bg);
+    }
+    .cloud-name { font-weight: 700; font-size: 1rem; }
+    .cloud-handle { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    .cloud-stats { display: flex; gap: 12px; }
+    .cloud-stat {
+      flex: 1; background: var(--surface-2); border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .cloud-stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+    .cloud-stat-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .cloud-stat-value.loading {
+      height: 20px; width: 70px; border-radius: 4px;
+      background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-h) 50%, var(--surface-2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .cloud-source {
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cloud-source a { color: var(--muted-2); text-decoration: none; word-break: break-all; }
+    .cloud-source a:hover { color: var(--text); }
+
+    /* ── Explainer ────────────────────────────────────── */
+    .explainer { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .explainer-inner { max-width: 900px; margin: 0 auto; padding: 64px 24px; }
+    .explainer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 32px; margin-top: 40px; }
+    .explainer-item { display: flex; gap: 16px; }
+    .explainer-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .explainer-item h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+    .explainer-item p { font-size: 0.83rem; color: var(--muted-2); line-height: 1.6; }
+
+    /* ── Footer ───────────────────────────────────────── */
+    footer {
+      max-width: 900px; margin: 0 auto;
+      padding: 48px 24px 40px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .footer-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+    .footer-brand { font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+    .footer-by { font-size: 0.8rem; color: var(--muted); }
+    .footer-by a { color: var(--muted-2); text-decoration: none; }
+    .footer-by a:hover { color: var(--text); }
+    .footer-stack { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .footer-stack span { color: var(--muted-2); }
+    .footer-bottom {
+      padding-top: 16px; border-top: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--muted);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .last-update-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 99px; padding: 3px 12px; font-size: 0.75rem; color: var(--muted-2);
+    }
+
+    /* ── Utility ──────────────────────────────────────── */
+    .hidden { display: none !important; }
+    @media (max-width: 600px) {
+      nav { padding: 0 16px; }
+      .nav-links { display: none; }
+      .hero { padding: 56px 16px 48px; }
+      .result-grid { grid-template-columns: 1fr; }
+      .cloud-stats { flex-direction: column; }
+      .footer-top { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ────────────────────────────────────────────── -->
+<nav>
+  <a href="/" class="nav-brand">
+    <div class="logo-dot">W</div>
+    WhereIsMyInstance
+  </a>
+  <div class="nav-links">
+    <a href="#providers">Providers</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="https://whereismyinstance.com/api/52.52.52.52" target="_blank">API</a>
+  </div>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Live cloud IP data
+    </div>
+
+    <h1>Where Is My Instance?</h1>
+    <p class="hero-sub">
+      Instantly identify which cloud provider owns any IP address —
+      and exactly which region, service, or network it belongs to.
+    </p>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <div class="search-box">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input
+          class="search-input"
+          id="ipInput"
+          type="text"
+          placeholder="Enter an IP address…  e.g. 52.52.52.52"
+          autocomplete="off" spellcheck="false"
+          inputmode="url"
+        />
+        <button class="search-btn" id="searchBtn" onclick="doLookup()">Look up</button>
+      </div>
+      <div class="search-examples" style="margin-top:12px;">
+        Try:
+        <span class="ex-ip" onclick="fillAndSearch('52.52.52.52')">52.52.52.52</span> ·
+        <span class="ex-ip" onclick="fillAndSearch('20.20.20.20')">20.20.20.20</span> ·
+        <span class="ex-ip" onclick="fillAndSearch('34.80.0.0')">34.80.0.0</span> ·
+        <span class="ex-ip" onclick="fillAndSearch('1.1.1.1')">1.1.1.1</span>
+      </div>
+    </div>
+
+    <!-- Result area -->
+    <div class="result-wrap hidden" id="resultWrap">
+      <div id="resultContent"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Cloud provider cards ───────────────────────────── -->
+<div class="section" id="providers">
+  <div class="section-label">Supported providers</div>
+  <h2 class="section-title">6 major clouds covered</h2>
+  <p class="section-sub">IP range data is fetched directly from each provider's official published source and kept up to date automatically.</p>
+
+  <div class="cloud-grid" id="cloudGrid">
+
+    <!-- AWS -->
+    <div class="cloud-card" style="--cloud-color:#FF9900; --cloud-bg:rgba(255,153,0,0.12);" data-key="aws">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+            <path d="M11.5 23.5c-1.5.8-2.5 2-2.5 3.5 0 2.5 2.8 4 7 4 2.5 0 5-.5 7-1.5" stroke="#FF9900" stroke-width="2" stroke-linecap="round"/>
+            <path d="M32 19c0-5.5-4-10-9-10s-9 4.5-9 10c0 .5 0 1 .1 1.5" stroke="#FF9900" stroke-width="2" stroke-linecap="round"/>
+            <path d="M8 20.5C8 16 11.5 12 16 12" stroke="#FF9900" stroke-width="2" stroke-linecap="round"/>
+            <path d="M14 28l-4 4M26 28l4 4M20 30v4" stroke="#FF9900" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="20" cy="20" r="4" fill="#FF9900"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Amazon Web Services</div>
+          <div class="cloud-handle">AWS</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-aws-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-aws-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://ip-ranges.amazonaws.com/ip-ranges.json" target="_blank">ip-ranges.amazonaws.com/ip-ranges.json</a>
+      </div>
+    </div>
+
+    <!-- Azure -->
+    <div class="cloud-card" style="--cloud-color:#0078D4; --cloud-bg:rgba(0,120,212,0.12);" data-key="azure">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+            <path d="M8 32l10-20 6 10-4 4 8 6H8z" fill="#0078D4" opacity="0.7"/>
+            <path d="M18 8l8 6-10 18" stroke="#0078D4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M8 32h24" stroke="#0078D4" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Microsoft Azure</div>
+          <div class="cloud-handle">Azure</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-azure-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-azure-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://www.microsoft.com/en-us/download/details.aspx?id=56519" target="_blank">microsoft.com — Azure IP Ranges JSON</a>
+      </div>
+    </div>
+
+    <!-- GCP -->
+    <div class="cloud-card" style="--cloud-color:#4285F4; --cloud-bg:rgba(66,133,244,0.12);" data-key="gcp">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+            <path d="M20 9h7l4 7-4 7h-7" stroke="#EA4335" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 9h-7l-4 7 4 7h7" stroke="#4285F4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 23l-4 7h22l-4-7" stroke="#FBBC05" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="20" cy="20" r="3" fill="#34A853"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Google Cloud Platform</div>
+          <div class="cloud-handle">GCP</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-gcp-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-gcp-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://www.gstatic.com/ipranges/cloud.json" target="_blank">gstatic.com/ipranges/cloud.json</a>
+      </div>
+    </div>
+
+    <!-- Cloudflare -->
+    <div class="cloud-card" style="--cloud-color:#F6821F; --cloud-bg:rgba(246,130,31,0.12);" data-key="cloudflare">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="30" height="26" viewBox="0 0 48 36" fill="none">
+            <path d="M30 24c0-4.4-3.6-8-8-8-3.2 0-6 1.9-7.3 4.7L14 21H10c-3.3 0-6 2.7-6 6s2.7 6 6 6h22c2.8 0 5-2.2 5-5s-2.2-5-5-5h-2z" fill="#F6821F"/>
+            <path d="M32 18c0-5.5-4.5-10-10-10-4 0-7.5 2.4-9.2 5.8" stroke="#FBAD41" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <path d="M38 22c0-3.3-2.7-6-6-6" stroke="#F6821F" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Cloudflare</div>
+          <div class="cloud-handle">CDN &amp; Network</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-cloudflare-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-cloudflare-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://www.cloudflare.com/ips/" target="_blank">cloudflare.com/ips/</a>
+      </div>
+    </div>
+
+    <!-- Oracle -->
+    <div class="cloud-card" style="--cloud-color:#C74634; --cloud-bg:rgba(199,70,52,0.12);" data-key="oracle">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="28" height="20" viewBox="0 0 48 32" fill="none">
+            <ellipse cx="24" cy="16" rx="22" ry="14" stroke="#C74634" stroke-width="3" fill="none"/>
+            <ellipse cx="24" cy="16" rx="10" ry="14" stroke="#C74634" stroke-width="3" fill="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Oracle Cloud</div>
+          <div class="cloud-handle">OCI</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-oracle-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-oracle-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json" target="_blank">docs.oracle.com — public_ip_ranges.json</a>
+      </div>
+    </div>
+
+    <!-- DigitalOcean -->
+    <div class="cloud-card" style="--cloud-color:#0080FF; --cloud-bg:rgba(0,128,255,0.12);" data-key="digitalocean">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="14" r="10" stroke="#0080FF" stroke-width="3" fill="none"/>
+            <path d="M20 24v6M14 28H8M14 34H10" stroke="#0080FF" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">DigitalOcean</div>
+          <div class="cloud-handle">Cloud &amp; VPS</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">IP Ranges</div>
+          <div class="cloud-stat-value" id="stat-digitalocean-count"><div class="loading"></div></div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-digitalocean-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://digitalocean.com/geo/google.csv" target="_blank">digitalocean.com/geo/google.csv</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Explainer ──────────────────────────────────────── -->
+<section class="explainer" id="how-it-works">
+  <div class="explainer-inner">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">What are cloud IP ranges?</h2>
+    <p class="section-sub" style="margin-bottom:0;">
+      Every major cloud provider publishes a list of the IP address ranges they use — for their services, regions, and edge networks.
+      This tool looks up any IP against all of those lists simultaneously.
+    </p>
+    <div class="explainer-grid">
+      <div class="explainer-item">
+        <div class="explainer-icon">📡</div>
+        <div>
+          <h3>Published by the clouds</h3>
+          <p>AWS, Azure, GCP, Cloudflare, Oracle, and DigitalOcean all maintain public JSON or text files listing every CIDR block they own. They update these when they add new regions or services.</p>
+        </div>
+      </div>
+      <div class="explainer-item">
+        <div class="explainer-icon">🔍</div>
+        <div>
+          <h3>Longest prefix match</h3>
+          <p>An IP address is matched against all known CIDR blocks (e.g. <code style="font-size:0.8em;color:#93c5fd">52.52.0.0/15</code>). The most specific matching block wins, revealing the region and service.</p>
+        </div>
+      </div>
+      <div class="explainer-item">
+        <div class="explainer-icon">🛡️</div>
+        <div>
+          <h3>Why this is useful</h3>
+          <p>Identify cloud-hosted traffic in firewall logs, verify that an IP belongs to a known provider, or debug routing issues across multi-cloud environments.</p>
+        </div>
+      </div>
+      <div class="explainer-item">
+        <div class="explainer-icon">⚡</div>
+        <div>
+          <h3>Direct API access</h3>
+          <p>Use the REST API directly from scripts or pipelines: <code style="font-size:0.8em;color:#93c5fd">GET /api/&lt;ip&gt;</code> returns a JSON response with provider, region, service, and the matching prefix.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────── -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <div class="footer-brand">WhereIsMyInstance.com</div>
+      <div class="footer-by">
+        Built by <a href="https://www.linkedin.com/in/avi-keinan-14828738/" target="_blank">Avi Keinan</a>
+      </div>
+      <div class="footer-stack" style="margin-top:8px;">
+        Powered by
+        <span>S3 · CloudFront · Lambda · API Gateway · Route 53</span>
+      </div>
+    </div>
+    <div id="globalLastUpdate" class="last-update-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Checking update time…
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>Data sourced from official cloud provider IP range files. No personal data collected.</span>
+    <span id="footerApiLink"><a href="/api/52.52.52.52" style="color:inherit;text-decoration:none;">API: /api/&lt;ip&gt;</a></span>
+  </div>
+</footer>
+
+<script>
+// ── Provider metadata ────────────────────────────────────
+const PROVIDERS = {
+  aws:          { name: 'Amazon Web Services', color: '#FF9900', bg: '#1a1000' },
+  azure:        { name: 'Microsoft Azure',     color: '#0078D4', bg: '#001020' },
+  gcp:          { name: 'Google Cloud',        color: '#4285F4', bg: '#000d20' },
+  cloudflare:   { name: 'Cloudflare',          color: '#F6821F', bg: '#1a0d00' },
+  oracle:       { name: 'Oracle Cloud',        color: '#C74634', bg: '#1a0500' },
+  digitalocean: { name: 'DigitalOcean',        color: '#0080FF', bg: '#001020' },
+}
+
+const PROVIDER_EMOJIS = {
+  aws: '🟠', azure: '🔵', gcp: '🔷', cloudflare: '🟡', oracle: '🔴', digitalocean: '💙',
+}
+
+// ── Search ────────────────────────────────────────────────
+const input  = document.getElementById('ipInput')
+const btn    = document.getElementById('searchBtn')
+const wrap   = document.getElementById('resultWrap')
+const content = document.getElementById('resultContent')
+
+input.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup() })
+
+function fillAndSearch(ip) {
+  input.value = ip
+  input.focus()
+  doLookup()
+}
+
+function isValidIP(ip) {
+  const v4 = /^(\d{1,3}\.){3}\d{1,3}$/
+  const v6 = /^[0-9a-fA-F:]+$/
+  return v4.test(ip) || v6.test(ip)
+}
+
+async function doLookup() {
+  const ip = input.value.trim()
+  if (!ip) { input.focus(); return }
+
+  if (!isValidIP(ip)) {
+    showError('Please enter a valid IPv4 or IPv6 address.')
+    return
+  }
+
+  btn.disabled = true
+  btn.textContent = '…'
+  wrap.classList.remove('hidden')
+  content.innerHTML = `
+    <div class="result-card" style="text-align:center;padding:28px 24px;color:var(--muted-2);font-size:0.9rem;">
+      <div style="width:28px;height:28px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 12px;"></div>
+      Looking up ${escHtml(ip)}…
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  `
+
+  try {
+    const res = await fetch(`/api/${encodeURIComponent(ip)}`)
+    const data = await res.json()
+    renderResult(ip, data)
+  } catch (e) {
+    showError(`Could not reach the API. Check your connection and try again.`)
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Look up'
+  }
+}
+
+function renderResult(ip, data) {
+  // Normalise different API response shapes
+  const provider = (data.provider || data.cloud || data.source || '').toLowerCase()
+  const found = provider && provider !== 'unknown' && provider !== 'none' && provider !== ''
+
+  if (!found) {
+    content.innerHTML = `
+      <div class="result-card result-not-found">
+        <div class="big">🤷</div>
+        <strong style="color:var(--text)">${escHtml(ip)}</strong> was not found in any known cloud IP range.
+        <div style="margin-top:8px;font-size:0.8rem;color:var(--muted)">It may be residential, ISP, or a private network.</div>
+      </div>
+    `
+    return
+  }
+
+  const meta    = PROVIDERS[provider] || {}
+  const pname   = meta.name || data.provider || provider
+  const pcolor  = meta.color || '#64748b'
+  const fields  = []
+
+  if (data.region)  fields.push({ label: 'Region',  value: data.region })
+  if (data.service) fields.push({ label: 'Service', value: data.service })
+  if (data.prefix || data.cidr || data.network) {
+    fields.push({ label: 'CIDR Prefix', value: data.prefix || data.cidr || data.network, full: true })
+  }
+  if (data.network_border_group) fields.push({ label: 'Border Group', value: data.network_border_group })
+
+  const fieldsHtml = fields.map(f => `
+    <div class="result-field ${f.full ? 'full' : ''}">
+      <div class="result-field-label">${escHtml(f.label)}</div>
+      <div class="result-field-value" style="color:${pcolor}">${escHtml(String(f.value))}</div>
+    </div>
+  `).join('')
+
+  content.innerHTML = `
+    <div class="result-card">
+      <div class="result-header">
+        <div class="result-provider-logo" style="background:${pcolor}22">
+          ${PROVIDER_EMOJIS[provider] || '☁️'}
+        </div>
+        <div>
+          <div class="result-title">${escHtml(ip)}</div>
+          <div class="result-subtitle">Belongs to <span style="color:${pcolor};font-weight:600">${escHtml(pname)}</span></div>
+        </div>
+      </div>
+      ${fields.length ? `<div class="result-grid">${fieldsHtml}</div>` : ''}
+    </div>
+  `
+}
+
+function showError(msg) {
+  wrap.classList.remove('hidden')
+  content.innerHTML = `
+    <div class="result-error">
+      <span style="font-size:1.2rem">⚠️</span>
+      ${escHtml(msg)}
+    </div>
+  `
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+}
+
+// ── Load provider stats ───────────────────────────────────
+async function loadStats() {
+  try {
+    const res = await fetch('/api/stats')
+    if (!res.ok) throw new Error('no stats endpoint')
+    const data = await res.json()
+
+    // Expected shape: { providers: { aws: { count: 123, updated: "2025-05-25T..." }, ... }, last_updated: "..." }
+    const providers = data.providers || data
+    for (const [key, info] of Object.entries(providers)) {
+      const k = key.toLowerCase().replace(/\s/g, '')
+      setStatCount(k, info.count ?? info.ip_count ?? info.ranges)
+      setStatUpdated(k, info.updated ?? info.last_updated ?? info.timestamp)
+    }
+
+    const globalTs = data.last_updated || data.updated
+    if (globalTs) updateGlobalBadge(globalTs)
+
+  } catch {
+    // Stats endpoint not available — show dashes
+    for (const key of Object.keys(PROVIDERS)) {
+      setStatCount(key, null)
+      setStatUpdated(key, null)
+    }
+  }
+}
+
+function setStatCount(key, val) {
+  const el = document.getElementById(`stat-${key}-count`)
+  if (!el) return
+  el.innerHTML = val != null ? Number(val).toLocaleString() : '—'
+  el.style.color = val != null ? '' : 'var(--muted)'
+}
+
+function setStatUpdated(key, val) {
+  const el = document.getElementById(`stat-${key}-updated`)
+  if (!el) return
+  if (!val) { el.innerHTML = '—'; el.style.color = 'var(--muted)'; return }
+  try {
+    const d = new Date(val)
+    el.textContent = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+  } catch {
+    el.textContent = String(val)
+  }
+}
+
+function updateGlobalBadge(ts) {
+  const el = document.getElementById('globalLastUpdate')
+  if (!el) return
+  try {
+    const d = new Date(ts)
+    el.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Updated ${d.toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'UTC' })} UTC
+    `
+  } catch {
+    el.textContent = `Updated ${ts}`
+  }
+}
+
+loadStats()
+</script>
+</body>
+</html>

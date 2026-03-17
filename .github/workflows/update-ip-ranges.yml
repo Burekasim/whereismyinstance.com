@@ -1,0 +1,87 @@
+name: Update IP Ranges
+
+on:
+  schedule:
+    # Every day at 02:00 UTC — after most providers push their nightly updates
+    - cron: "0 2 * * *"
+  workflow_dispatch:   # allow manual trigger
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  update:
+    name: Download latest IP ranges and redeploy Lambda
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── AWS credentials ────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      # ── Python ─────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ── Download fresh IP range files ──────────────────
+      - name: Download IP range files
+        run: python scripts/download_ip_ranges.py
+
+      # ── Install Lambda dependencies ────────────────────
+      - name: Install Lambda Python dependencies
+        run: pip install -r lambda/requirements.txt -t lambda/
+
+      # ── Build Lambda zip ───────────────────────────────
+      - name: Build Lambda zip
+        run: |
+          mkdir -p dist
+          cd lambda
+          zip -r ../dist/lambda.zip . -x "*.pyc" -x "__pycache__/*"
+
+      # ── Push to Lambda ─────────────────────────────────
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --zip-file fileb://dist/lambda.zip \
+            --region "${{ env.AWS_REGION }}"
+
+          aws lambda wait function-updated \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
+
+      # ── Smoke test ─────────────────────────────────────
+      - name: Smoke test (invoke Lambda directly)
+        run: |
+          RESULT=$(aws lambda invoke \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --payload '{"version":"2.0","rawPath":"/api/52.52.52.52","pathParameters":{"proxy":"api/52.52.52.52"}}' \
+            --cli-binary-format raw-in-base64-out \
+            --region "${{ env.AWS_REGION }}" \
+            /tmp/response.json \
+            --query 'StatusCode' \
+            --output text)
+          echo "Lambda status code: $RESULT"
+          cat /tmp/response.json
+          if [ "$RESULT" != "200" ]; then
+            echo "Smoke test failed!"
+            exit 1
+          fi
+
+      # ── Notify on failure ──────────────────────────────
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::Daily IP range update failed. Check the logs above."
