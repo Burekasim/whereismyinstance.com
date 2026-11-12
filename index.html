@@ -981,6 +981,38 @@ const PROVIDER_SVGS = {
   </svg>`,
 }
 
+// Official favicon per provider (shown instead of the drawn logos); falls back to
+// the SVG above if the icon can't load.
+const PROVIDER_FAVICON_DOMAIN = {
+  aws: 'aws.amazon.com',
+  azure: 'azure.microsoft.com',
+  gcp: 'cloud.google.com',
+  cloudflare: 'cloudflare.com',
+  oracle: 'oracle.com',
+  digitalocean: 'digitalocean.com',
+  github: 'github.com',
+}
+
+function providerLogo(key, size) {
+  const domain = PROVIDER_FAVICON_DOMAIN[key]
+  if (!domain) return PROVIDER_SVGS[key] || ''
+  return `<img src="https://www.google.com/s2/favicons?sz=64&domain=${domain}" width="${size}" height="${size}" alt="${key} logo" loading="lazy" decoding="async" data-key="${key}" style="border-radius:5px;display:block" onerror="logoFallback(this)">`
+}
+
+// If an official favicon fails to load, fall back to the drawn SVG.
+function logoFallback(img) {
+  const svg = PROVIDER_SVGS[img.dataset.key]
+  if (svg) img.outerHTML = svg
+}
+
+// Swap the drawn logos in the homepage provider cards for official favicons.
+function applyProviderFavicons() {
+  document.querySelectorAll('.cloud-card[data-key]').forEach(card => {
+    const logo = card.querySelector('.cloud-logo')
+    if (logo) logo.innerHTML = providerLogo(card.dataset.key, 28)
+  })
+}
+
 // ── Search ────────────────────────────────────────────────
 const input  = document.getElementById('ipInput')
 const btn    = document.getElementById('searchBtn')
@@ -1052,7 +1084,7 @@ function renderResult(ip, data) {
   const meta   = PROVIDERS[key] || {}
   const pname  = meta.name || rawCloud
   const pcolor = meta.color || '#64748b'
-  const psvg   = PROVIDER_SVGS[key] || ''
+  const psvg   = providerLogo(key, 26)
   const fields = []
 
   if (data.region) {
@@ -1226,6 +1258,7 @@ function toggleTheme() {
 // Apply saved preference before first paint
 applyTheme(localStorage.getItem('theme') || 'dark')
 
+applyProviderFavicons()
 loadStats()
 </script>
 </body>
