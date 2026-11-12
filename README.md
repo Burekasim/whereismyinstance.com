@@ -2,7 +2,7 @@
 
 Instantly identify which cloud provider owns any IP address — and exactly which region, service, or network it belongs to.
 
-Supports **AWS, Azure, GCP, Cloudflare, Oracle Cloud, and DigitalOcean**.
+Supports **AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, and GitHub**.
 
 ## Architecture
 
@@ -151,6 +151,7 @@ After that, all subsequent deploys are handled automatically by GitHub Actions o
 | Oracle | https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json |
 | Cloudflare | https://www.cloudflare.com/ips-v4 + /ips-v6 |
 | DigitalOcean | https://digitalocean.com/geo/google.csv |
+| GitHub | https://api.github.com/meta |
 
 ## Built by
 

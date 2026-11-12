@@ -107,6 +107,14 @@ def download_digitalocean():
     )
 
 
+# ── GitHub ────────────────────────────────────────────────
+def download_github():
+    """GitHub publishes its own IP ranges (and its Actions runner ranges) at
+    api.github.com/meta, grouped by service (actions, web, api, git, hooks, ...)."""
+    print("GitHub...")
+    save("github_ranges.json", fetch("https://api.github.com/meta"))
+
+
 # ── Main ──────────────────────────────────────────────────
 DOWNLOADERS = [
     download_aws,
@@ -115,6 +123,7 @@ DOWNLOADERS = [
     download_azure,
     download_cloudflare,
     download_digitalocean,
+    download_github,
 ]
 
 def _ipv4_count(cidr: str) -> int:
@@ -230,6 +239,22 @@ def write_stats(downloaded_at: str):
         }
     except Exception as e:
         print(f"  stats DigitalOcean error: {e}")
+
+    # GitHub — the meta file groups CIDRs by service; count the distinct CIDRs.
+    try:
+        d = json.loads((OUT_DIR / "github_ranges.json").read_text())
+        cidrs = {entry for val in d.values() if isinstance(val, list)
+                 for entry in val if _cidr_version(entry) in (4, 6)}
+        v4 = [c for c in cidrs if _cidr_version(c) == 4]
+        v6 = [c for c in cidrs if _cidr_version(c) == 6]
+        providers["github"] = {
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
+            "updated": downloaded_at,
+        }
+    except Exception as e:
+        print(f"  stats GitHub error: {e}")
 
     stats = {"providers": providers, "last_updated": downloaded_at}
     path = OUT_DIR / "stats.json"

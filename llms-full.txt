@@ -1,6 +1,6 @@
 # WhereIsMyInstance.com — Full Content
 
-> WhereIsMyInstance.com is a free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean. No account or API key required.
+> WhereIsMyInstance.com is a free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, and GitHub. No account or API key required.
 
 ---
 
@@ -188,7 +188,7 @@ Visit whereismyinstance.com and enter the IP address in the search box, then cli
 Yes. Send a GET request to https://whereismyinstance.com/api/<ip> where <ip> is any IPv4 or IPv6 address. The response is JSON with fields: cloud, region, region_location, service, and ip_range. No authentication or API key is required.
 
 **Which cloud providers are supported?**
-Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), and DigitalOcean.
+Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, and GitHub.
 
 **How current is the IP range data?**
 IP range data is updated every 24 hours from each provider's official source.

@@ -213,10 +213,11 @@ _ORACLE_NETS = []  # [(IPNetwork, cidr_str, region, tags), ...]
 _AZURE_NETS  = []  # [(IPNetwork, cidr, region, resource_id), ...]
 _CF_NETS     = []  # [IPNetwork, ...]
 _DO_ROWS     = []  # [(IPNetwork, row_dict), ...]
+_GITHUB_NETS = []  # [(IPNetwork, service_key), ...]
 
 
 def _init():
-    global _AWS_NETS, _GCP_NETS, _ORACLE_NETS, _AZURE_NETS, _CF_NETS, _DO_ROWS
+    global _AWS_NETS, _GCP_NETS, _ORACLE_NETS, _AZURE_NETS, _CF_NETS, _DO_ROWS, _GITHUB_NETS
 
     try:
         with open(_json_path("aws_ranges.json")) as f:
@@ -288,6 +289,22 @@ def _init():
             for row in csv.DictReader(f, fieldnames=fieldnames):
                 try:
                     _DO_ROWS.append((netaddr.IPNetwork(row["cidr"]), row))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("github_ranges.json")) as f:
+            d = json.load(f)
+        # The meta file groups CIDR lists by service (actions, web, api, git, ...);
+        # skip non-range keys (ssh_keys, domains, booleans) by letting the parse fail.
+        for key, val in d.items():
+            if not isinstance(val, list):
+                continue
+            for entry in val:
+                try:
+                    _GITHUB_NETS.append((netaddr.IPNetwork(entry), key))
                 except Exception:
                     pass
     except Exception:
@@ -383,6 +400,25 @@ def digitalocean_ranges(ip_addr):
     return respond(404, {"results": "No matches found"})
 
 
+def github_ranges(ip_addr):
+    services, ip_range = [], None
+    for net, svc in _GITHUB_NETS:
+        if ip_addr in net:
+            # Keep the most specific (smallest) matching range for display.
+            if ip_range is None or net.prefixlen > ip_range[1]:
+                ip_range = (str(net), net.prefixlen)
+            services.append(svc)
+    if not services:
+        return respond(404, {"results": "No matches found"})
+    return respond(200, {
+        "cloud": "GitHub",
+        "ip_range": ip_range[0],
+        "region": "Global",
+        "region_location": "Global",
+        "service": sorted(set(services)),
+    })
+
+
 # ── Stats — read precomputed file from S3/disk ────────────
 
 def get_stats():
@@ -426,7 +462,9 @@ def lambda_handler(event, context):
 
     ip_addr = netaddr.IPAddress(segment)
 
-    for lookup in (aws_ranges, gcp_ranges, azure_ranges, cloudflare_ranges, digitalocean_ranges):
+    # GitHub first: its Actions runner ranges sit inside Azure's, so checking it
+    # before Azure identifies them as GitHub rather than plain Azure.
+    for lookup in (github_ranges, aws_ranges, gcp_ranges, azure_ranges, cloudflare_ranges, digitalocean_ranges):
         result = lookup(ip_addr)
         if result["statusCode"] == 200:
             return result
