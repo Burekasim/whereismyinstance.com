@@ -115,6 +115,31 @@ def download_github():
     save("github_ranges.json", fetch("https://api.github.com/meta"))
 
 
+# ── Fastly ────────────────────────────────────────────────
+def download_fastly():
+    """Fastly publishes its edge CDN ranges as {addresses, ipv6_addresses}."""
+    print("Fastly...")
+    save("fastly_ranges.json", fetch("https://api.fastly.com/public-ip-list"))
+
+
+# ── Linode (Akamai Connected Cloud) ───────────────────────
+def download_linode():
+    """Linode publishes an RFC 8805 geofeed CSV (ip_prefix, alpha2, region, city,
+    postal) covering its whole network — gives per-prefix location for free."""
+    print("Linode (Akamai)...")
+    save("linode_ranges.csv", fetch("https://geoip.linode.com/", text=True))
+
+
+# ── Bunny.net ─────────────────────────────────────────────
+def download_bunny():
+    """Bunny.net publishes its edge server IPs as JSON arrays of host addresses
+    (one list for IPv4, one for IPv6). Combine them into one file."""
+    print("Bunny.net...")
+    v4 = json.loads(fetch("https://bunnycdn.com/api/system/edgeserverlist", text=True))
+    v6 = json.loads(fetch("https://bunnycdn.com/api/system/edgeserverlist/ipv6", text=True))
+    save("bunny_ranges.json", json.dumps({"ipv4": v4, "ipv6": v6}))
+
+
 # ── Main ──────────────────────────────────────────────────
 DOWNLOADERS = [
     download_aws,
@@ -124,6 +149,9 @@ DOWNLOADERS = [
     download_cloudflare,
     download_digitalocean,
     download_github,
+    download_fastly,
+    download_linode,
+    download_bunny,
 ]
 
 def _ipv4_count(cidr: str) -> int:
@@ -255,6 +283,55 @@ def write_stats(downloaded_at: str):
         }
     except Exception as e:
         print(f"  stats GitHub error: {e}")
+
+    # Fastly
+    try:
+        d = json.loads((OUT_DIR / "fastly_ranges.json").read_text())
+        v4 = d.get("addresses", [])
+        v6 = d.get("ipv6_addresses", [])
+        providers["fastly"] = {
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
+            "updated": downloaded_at,
+        }
+    except Exception as e:
+        print(f"  stats Fastly error: {e}")
+
+    # Linode (Akamai) — geofeed CSV, skip comment/blank lines
+    try:
+        cidrs = []
+        for line in (OUT_DIR / "linode_ranges.csv").read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            first = line.split(",", 1)[0].strip()
+            if first:
+                cidrs.append(first)
+        v4 = [c for c in cidrs if _cidr_version(c) == 4]
+        v6 = [c for c in cidrs if _cidr_version(c) == 6]
+        providers["linode"] = {
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
+            "updated": downloaded_at,
+        }
+    except Exception as e:
+        print(f"  stats Linode error: {e}")
+
+    # Bunny.net — JSON arrays of host IPs (each counts as a single address)
+    try:
+        d = json.loads((OUT_DIR / "bunny_ranges.json").read_text())
+        v4 = [c for c in d.get("ipv4", []) if _cidr_version(c) == 4]
+        v6 = [c for c in d.get("ipv6", []) if _cidr_version(c) == 6]
+        providers["bunny"] = {
+            "ip_count": sum(_ipv4_count(c) for c in v4),
+            "ipv4_ranges": len(v4),
+            "ipv6_ranges": len(v6),
+            "updated": downloaded_at,
+        }
+    except Exception as e:
+        print(f"  stats Bunny error: {e}")
 
     stats = {"providers": providers, "last_updated": downloaded_at}
     path = OUT_DIR / "stats.json"

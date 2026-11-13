@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Where Is My Instance? — Cloud IP Lookup</title>
-  <meta name="description" content="Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, and GitHub. Free REST API included." />
+  <meta name="description" content="Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, GitHub, Fastly, Linode, and Bunny.net. Free REST API included." />
   <link rel="canonical" href="https://whereismyinstance.com/" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
@@ -12,7 +12,7 @@
   <meta property="og:type"        content="website" />
   <meta property="og:url"         content="https://whereismyinstance.com/" />
   <meta property="og:title"       content="Where Is My Instance? — Cloud IP Lookup" />
-  <meta property="og:description" content="Instantly identify which cloud provider owns any IP address. Free tool and REST API covering AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, and GitHub." />
+  <meta property="og:description" content="Instantly identify which cloud provider owns any IP address. Free tool and REST API covering AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, GitHub, Fastly, Linode, and Bunny.net." />
   <meta property="og:image"       content="https://whereismyinstance.com/favicon.svg" />
 
   <!-- Twitter / X -->
@@ -37,7 +37,7 @@
         "@id": "https://whereismyinstance.com/#website",
         "url": "https://whereismyinstance.com",
         "name": "WhereIsMyInstance.com",
-        "description": "Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, and GitHub.",
+        "description": "Instantly identify which cloud provider owns any IP address. Supports AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, GitHub, Fastly, Linode, and Bunny.net.",
         "publisher": { "@id": "https://whereismyinstance.com/#org" },
         "potentialAction": {
           "@type": "SearchAction",
@@ -68,7 +68,7 @@
             "name": "What is whereismyinstance.com?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "WhereIsMyInstance.com is a free tool that identifies which cloud provider owns any IP address. Enter any IPv4 or IPv6 address and instantly see the provider (AWS, Azure, GCP, Cloudflare, Oracle Cloud, or DigitalOcean), the region, service name, and the matching CIDR prefix."
+              "text": "WhereIsMyInstance.com is a free tool that identifies which cloud provider owns any IP address. Enter any IPv4 or IPv6 address and instantly see the provider (AWS, Azure, GCP, Cloudflare, Oracle Cloud, DigitalOcean, GitHub, Fastly, Linode, or Bunny.net), the region, service name, and the matching CIDR prefix."
             }
           },
           {
@@ -92,7 +92,7 @@
             "name": "Which cloud providers are supported?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "WhereIsMyInstance supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, and GitHub. IP range data is fetched daily from each provider's official published source."
+              "text": "WhereIsMyInstance supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, GitHub, Fastly, Linode (Akamai), and Bunny.net. IP range data is fetched daily from each provider's official published source."
             }
           },
           {
@@ -100,7 +100,7 @@
             "name": "How current is the IP range data?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "IP range data is updated every 24 hours by downloading the latest files directly from each cloud provider's official source: AWS ip-ranges.amazonaws.com/ip-ranges.json, GCP gstatic.com/ipranges/cloud.json, Azure ServiceTags JSON from microsoft.com, Cloudflare cloudflare.com/ips-v4 and /ips-v6, Oracle docs.oracle.com public_ip_ranges.json, DigitalOcean digitalocean.com/geo/google.csv, and GitHub api.github.com/meta."
+              "text": "IP range data is updated every 24 hours by downloading the latest files directly from each cloud provider's official source: AWS ip-ranges.amazonaws.com/ip-ranges.json, GCP gstatic.com/ipranges/cloud.json, Azure ServiceTags JSON from microsoft.com, Cloudflare cloudflare.com/ips-v4 and /ips-v6, Oracle docs.oracle.com public_ip_ranges.json, DigitalOcean digitalocean.com/geo/google.csv, GitHub api.github.com/meta, Fastly api.fastly.com/public-ip-list, Linode geoip.linode.com (RFC 8805 geofeed), and Bunny.net bunnycdn.com edgeserverlist."
             }
           }
         ]
@@ -852,6 +852,105 @@
       </div>
     </div>
 
+    <!-- Fastly -->
+    <div class="cloud-card" style="--cloud-color:#FF282D; --cloud-bg:rgba(255,40,45,0.12);" data-key="fastly">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF282D" stroke-width="2">
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M12 13V8M12 3v2M9 3h6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Fastly</div>
+          <div class="cloud-handle">Edge CDN</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Total IPs</div>
+          <div class="count-wrap" id="stat-fastly-count-wrap">
+            <div class="cloud-stat-value" id="stat-fastly-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-fastly-tooltip"></div>
+          </div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-fastly-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://api.fastly.com/public-ip-list" target="_blank">api.fastly.com/public-ip-list</a>
+      </div>
+    </div>
+
+    <!-- Linode (Akamai) -->
+    <div class="cloud-card" style="--cloud-color:#00A95C; --cloud-bg:rgba(0,169,92,0.12);" data-key="linode">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00A95C" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="3.5" fill="#00A95C" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Linode (Akamai)</div>
+          <div class="cloud-handle">Cloud &amp; VPS</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Total IPs</div>
+          <div class="count-wrap" id="stat-linode-count-wrap">
+            <div class="cloud-stat-value" id="stat-linode-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-linode-tooltip"></div>
+          </div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-linode-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://geoip.linode.com/" target="_blank">geoip.linode.com — RFC 8805 geofeed</a>
+      </div>
+    </div>
+
+    <!-- Bunny.net -->
+    <div class="cloud-card" style="--cloud-color:#E8831D; --cloud-bg:rgba(232,131,29,0.12);" data-key="bunny">
+      <div class="cloud-top">
+        <div class="cloud-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8831D" stroke-width="2">
+            <path d="M8 13a4 4 0 0 0 8 0c0-3-1.5-5-1.5-7 0-1 .5-2 .5-2-2 0-3 1.5-3 3-2-1-4 .5-4 .5s1 1 1 2.5c-1 .5-1.5 1.5-1.5 2.5z" stroke-linejoin="round"/>
+            <circle cx="10.5" cy="12" r="0.6" fill="#E8831D" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="cloud-name">Bunny.net</div>
+          <div class="cloud-handle">Edge CDN</div>
+        </div>
+      </div>
+      <div class="cloud-stats">
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Total IPs</div>
+          <div class="count-wrap" id="stat-bunny-count-wrap">
+            <div class="cloud-stat-value" id="stat-bunny-count"><div class="loading"></div></div>
+            <div class="ip-tooltip" id="stat-bunny-tooltip"></div>
+          </div>
+        </div>
+        <div class="cloud-stat">
+          <div class="cloud-stat-label">Last Updated</div>
+          <div class="cloud-stat-value" id="stat-bunny-updated" style="font-size:0.8rem;"><div class="loading"></div></div>
+        </div>
+      </div>
+      <div class="cloud-source">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a href="https://bunnycdn.com/api/system/edgeserverlist" target="_blank">bunnycdn.com — edgeserverlist</a>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -869,7 +968,7 @@
         <div class="explainer-icon">📡</div>
         <div>
           <h3>Published by the clouds</h3>
-          <p>AWS, Azure, GCP, Cloudflare, Oracle, DigitalOcean, and GitHub all maintain public JSON or text files listing every CIDR block they own. They update these when they add new regions or services.</p>
+          <p>AWS, Azure, GCP, Cloudflare, Oracle, DigitalOcean, GitHub, Fastly, Linode, and Bunny.net all maintain public JSON or text files listing every CIDR block they own. They update these when they add new regions or services.</p>
         </div>
       </div>
       <div class="explainer-item">
@@ -931,6 +1030,9 @@ const PROVIDERS = {
   oracle:       { name: 'Oracle Cloud',        color: '#C74634', bg: '#1a0500' },
   digitalocean: { name: 'DigitalOcean',        color: '#0080FF', bg: '#001020' },
   github:       { name: 'GitHub',              color: '#8957e5', bg: '#0d1117' },
+  fastly:       { name: 'Fastly',              color: '#FF282D', bg: '#1a0000' },
+  linode:       { name: 'Linode (Akamai)',     color: '#00A95C', bg: '#001a0d' },
+  bunny:        { name: 'Bunny.net',           color: '#E8831D', bg: '#1a0d00' },
 }
 
 // Maps the cloud name returned by the API to the PROVIDERS key
@@ -943,6 +1045,10 @@ const CLOUD_NAME_TO_KEY = {
   'oracle cloud':        'oracle',
   'digitalocean':        'digitalocean',
   'github':              'github',
+  'fastly':              'fastly',
+  'linode (akamai)':     'linode',
+  'linode':              'linode',
+  'bunny.net':           'bunny',
 }
 
 const PROVIDER_SVGS = {
@@ -979,6 +1085,18 @@ const PROVIDER_SVGS = {
   github: `<svg width="24" height="24" viewBox="0 0 16 16" fill="#8957e5">
     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
   </svg>`,
+  fastly: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF282D" stroke-width="2">
+    <circle cx="12" cy="13" r="8"/>
+    <path d="M12 13V8M12 3v2M9 3h6" stroke-linecap="round"/>
+  </svg>`,
+  linode: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00A95C" stroke-width="2">
+    <circle cx="12" cy="12" r="9"/>
+    <circle cx="12" cy="12" r="3.5" fill="#00A95C" stroke="none"/>
+  </svg>`,
+  bunny: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8831D" stroke-width="2">
+    <path d="M8 13a4 4 0 0 0 8 0c0-3-1.5-5-1.5-7 0-1 .5-2 .5-2-2 0-3 1.5-3 3-2-1-4 .5-4 .5s1 1 1 2.5c-1 .5-1.5 1.5-1.5 2.5z" stroke-linejoin="round"/>
+    <circle cx="10.5" cy="12" r="0.6" fill="#E8831D" stroke="none"/>
+  </svg>`,
 }
 
 // Official favicon per provider (shown instead of the drawn logos); falls back to
@@ -991,6 +1109,9 @@ const PROVIDER_FAVICON_DOMAIN = {
   oracle: 'oracle.com',
   digitalocean: 'digitalocean.com',
   github: 'github.com',
+  fastly: 'fastly.com',
+  linode: 'linode.com',
+  bunny: 'bunny.net',
 }
 
 function providerLogo(key, size) {

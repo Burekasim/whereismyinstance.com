@@ -214,10 +214,14 @@ _AZURE_NETS  = []  # [(IPNetwork, cidr, region, resource_id), ...]
 _CF_NETS     = []  # [IPNetwork, ...]
 _DO_ROWS     = []  # [(IPNetwork, row_dict), ...]
 _GITHUB_NETS = []  # [(IPNetwork, service_key), ...]
+_FASTLY_NETS = []  # [IPNetwork, ...]
+_LINODE_ROWS = []  # [(IPNetwork, alpha2, region, city), ...]
+_BUNNY_NETS  = []  # [IPNetwork, ...]
 
 
 def _init():
     global _AWS_NETS, _GCP_NETS, _ORACLE_NETS, _AZURE_NETS, _CF_NETS, _DO_ROWS, _GITHUB_NETS
+    global _FASTLY_NETS, _LINODE_ROWS, _BUNNY_NETS
 
     try:
         with open(_json_path("aws_ranges.json")) as f:
@@ -313,6 +317,46 @@ def _init():
                     _GITHUB_NETS.append((netaddr.IPNetwork(entry), key))
                 except Exception:
                     pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("fastly_ranges.json")) as f:
+            d = json.load(f)
+        for cidr in d.get("addresses", []) + d.get("ipv6_addresses", []):
+            try:
+                _FASTLY_NETS.append(netaddr.IPNetwork(cidr))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("linode_ranges.csv")) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = [p.strip() for p in line.split(",")]
+                cidr = parts[0]
+                alpha2 = parts[1] if len(parts) > 1 else ""
+                region = parts[2] if len(parts) > 2 else ""
+                city = parts[3] if len(parts) > 3 else ""
+                try:
+                    _LINODE_ROWS.append((netaddr.IPNetwork(cidr), alpha2, region, city))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        with open(_json_path("bunny_ranges.json")) as f:
+            d = json.load(f)
+        for ip in d.get("ipv4", []) + d.get("ipv6", []):
+            try:
+                _BUNNY_NETS.append(netaddr.IPNetwork(ip))
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -425,6 +469,46 @@ def github_ranges(ip_addr):
     })
 
 
+def fastly_ranges(ip_addr):
+    for net in _FASTLY_NETS:
+        if ip_addr in net:
+            return respond(200, {
+                "cloud": "Fastly",
+                "ip_range": str(net),
+                "region": "Global",
+                "region_location": "Global",
+                "service": "Fastly CDN",
+            })
+    return respond(404, {"results": "No matches found"})
+
+
+def linode_ranges(ip_addr):
+    for net, alpha2, region, city in _LINODE_ROWS:
+        if ip_addr in net:
+            loc = ", ".join(p for p in [city, region, alpha2] if p)
+            return respond(200, {
+                "cloud": "Linode (Akamai)",
+                "ip_range": str(net),
+                "region": region or alpha2 or "Global",
+                "region_location": loc or "Global",
+                "service": "Linode",
+            })
+    return respond(404, {"results": "No matches found"})
+
+
+def bunny_ranges(ip_addr):
+    for net in _BUNNY_NETS:
+        if ip_addr in net:
+            return respond(200, {
+                "cloud": "Bunny.net",
+                "ip_range": str(net),
+                "region": "Global",
+                "region_location": "Global",
+                "service": "Bunny CDN",
+            })
+    return respond(404, {"results": "No matches found"})
+
+
 # ── Stats — read precomputed file from S3/disk ────────────
 
 def get_stats():
@@ -470,7 +554,8 @@ def lambda_handler(event, context):
 
     # GitHub first: its Actions runner ranges sit inside Azure's, so checking it
     # before Azure identifies them as GitHub rather than plain Azure.
-    for lookup in (github_ranges, aws_ranges, gcp_ranges, azure_ranges, cloudflare_ranges, digitalocean_ranges):
+    for lookup in (github_ranges, aws_ranges, gcp_ranges, azure_ranges, cloudflare_ranges,
+                   digitalocean_ranges, fastly_ranges, linode_ranges, bunny_ranges):
         result = lookup(ip_addr)
         if result["statusCode"] == 200:
             return result

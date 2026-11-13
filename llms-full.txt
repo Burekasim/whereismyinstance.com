@@ -1,12 +1,12 @@
 # WhereIsMyInstance.com — Full Content
 
-> WhereIsMyInstance.com is a free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, and GitHub. No account or API key required.
+> WhereIsMyInstance.com is a free cloud IP lookup tool and REST API. Enter any IPv4 or IPv6 address to instantly identify which cloud provider owns it — including the provider name, region, service, and exact CIDR prefix. Supports Amazon Web Services (AWS), Microsoft Azure, Google Cloud Platform (GCP), Cloudflare, Oracle Cloud Infrastructure (OCI), DigitalOcean, GitHub, Fastly, Linode (Akamai), and Bunny.net. No account or API key required.
 
 ---
 
 ## What the tool does
 
-WhereIsMyInstance.com lets you identify which cloud provider owns any IP address. The tool covers all six major providers and tells you not just the provider name, but also:
+WhereIsMyInstance.com lets you identify which cloud provider owns any IP address. The tool covers ten major providers and tells you not just the provider name, but also:
 
 - The cloud region (e.g. us-east-1, eastus, us-central1)
 - The physical location of that region (e.g. US East (N. Virginia), East US (Virginia))
@@ -146,6 +146,26 @@ i 2600:1f18::1
 - Updated: daily
 - Includes: all DigitalOcean data center IPs globally
 
+### GitHub
+- Source: https://api.github.com/meta
+- Updated: daily
+- Includes: GitHub's own ranges and GitHub Actions runner ranges (grouped by service)
+
+### Fastly
+- Source: https://api.fastly.com/public-ip-list
+- Updated: daily
+- Includes: Fastly's global edge CDN IPv4 and IPv6 ranges
+
+### Linode (Akamai Connected Cloud)
+- Source: https://geoip.linode.com/ (RFC 8805 geofeed)
+- Updated: daily
+- Includes: all Linode data center IPs globally, with per-prefix city/region
+
+### Bunny.net
+- Source: https://bunnycdn.com/api/system/edgeserverlist (IPv4) and /ipv6
+- Updated: daily
+- Includes: all Bunny.net edge server IPs globally
+
 ---
 
 ## How it works
@@ -154,7 +174,7 @@ i 2600:1f18::1
 
 Every major cloud provider publishes a list of the IP address ranges they use — for their services, regions, and edge networks. WhereIsMyInstance downloads these files daily and bundles them into an AWS Lambda function.
 
-When you look up an IP address, the Lambda function performs a **longest-prefix match** against all known CIDR blocks across all six providers. The most specific matching block wins, and the function returns the provider, region, service, and CIDR prefix associated with that block.
+When you look up an IP address, the Lambda function performs a **longest-prefix match** against all known CIDR blocks across all ten providers. The most specific matching block wins, and the function returns the provider, region, service, and CIDR prefix associated with that block.
 
 For example, if IP 52.52.52.52 falls inside both 52.0.0.0/8 and 52.52.0.0/15, the /15 block wins because it is more specific.
 
