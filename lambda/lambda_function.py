@@ -258,11 +258,17 @@ def _init():
     try:
         with open(_json_path("azure_ranges.json")) as f:
             d = json.load(f)
-        for resource in d.get("values", []):
-            region = resource["properties"]["region"]
-            if not region:
-                continue
-            for cidr in resource["properties"]["addressPrefixes"]:
+        # Azure's file carries both regional tags (region set) and global/
+        # service-wide tags (region ""): Azure Front Door, App Service, API
+        # Management, etc. Load ALL of them so those IPs resolve as Azure
+        # instead of 404 — regional entries first, so a prefix covered by both
+        # a regional and a global tag keeps its region on first-match lookup.
+        values = d.get("values", [])
+        regional = [r for r in values if (r.get("properties") or {}).get("region")]
+        globals_ = [r for r in values if not (r.get("properties") or {}).get("region")]
+        for resource in regional + globals_:
+            region = (resource.get("properties") or {}).get("region") or ""
+            for cidr in (resource.get("properties") or {}).get("addressPrefixes", []):
                 try:
                     _AZURE_NETS.append((
                         netaddr.IPNetwork(cidr),
